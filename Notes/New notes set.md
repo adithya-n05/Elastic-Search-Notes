@@ -2084,3 +2084,1343 @@ In this example, the script removes the "content" field and assigns its value to
 These are just a few examples of how you can use the Reindex API for different scenarios. Remember to adjust the index names, field mappings, queries, and scripts according to your specific requirements.
 
 For more details and advanced features of the Reindex API, refer to the Elasticsearch documentation.
+
+## Using Field Aliases
+
+In the previous lecture, we discussed how to rename a field by reindexing documents into a new index. However, if you have millions of documents, reindexing just for the sake of renaming a field may not be practical. In such cases, you can use field aliases as an alternative solution.
+
+1. Implementing field aliases:
+   - Instead of renaming the field, add an alias that points to the actual field.
+   - Add a new field mapping of type "alias" and specify the target field name using the "path" parameter.
+   
+   ```bash
+   PUT reviews/_mapping
+   {
+     "properties": {
+       "comment": {
+         "type": "alias",
+         "path": "content"
+       }
+     }
+   }
+   ```
+
+2. Search using the original field or the alias:
+   - Prepare search queries that use the original field name and the alias, respectively.
+   - Querying the alias will provide the same results as querying the original field.
+   
+   ```bash
+   GET reviews/_search
+   {
+     "query": {
+       "match": {
+         "content": "search keyword"
+       }
+     }
+   }
+   ```
+
+   ```bash
+   GET reviews/_search
+   {
+     "query": {
+       "match": {
+         "comment": "search keyword"
+       }
+     }
+   }
+   ```
+
+3. Verify that both queries return the same results.
+
+Using a field alias allows you to query a field by a different name without the need to reindex the data. It does not replace the existing field mapping but provides an additional way to reference the field in queries.
+
+Field aliases can be updated to point to a different target field by performing a mapping update with a new value for the "path" parameter. This flexibility is possible because aliases have no impact on how values are indexed; they are used solely for query parsing in search or index requests.
+
+Field aliases have a few limitations, but for common use cases, they can be utilized as expected. Additionally, it is possible to configure index aliases at the cluster level, which is useful when dealing with high volumes of data. However, further details on cluster-level index aliases are beyond the scope of this section.
+
+Field aliases provide a convenient way to rename fields without the need for reindexing and offer flexibility in query parsing. They can be a valuable tool in scenarios where renaming fields is required while maintaining backward compatibility.
+
+For more information and advanced use cases related to field aliases, refer to the Elasticsearch documentation.
+
+## Multiple Mappings for a Field
+
+It may surprise you, but a field in Elasticsearch can have multiple mappings, allowing it to be mapped in different ways simultaneously. In this lecture, we'll explore an example where a "text" field is also mapped as a "keyword" field.
+
+1. Creating a throwaway index with two fields:
+   - Prepare a simple query that creates an index with two fields: "description" and "ingredients".
+   - By default, every field in Elasticsearch can store zero or more values.
+   
+   ```bash
+   PUT recipes
+   {
+     "mappings": {
+       "properties": {
+         "description": {
+           "type": "text"
+         },
+         "ingredients": {
+           "type": "text"
+         }
+       }
+     }
+   }
+   ```
+
+2. Indexing a document:
+   - Index a document into the created index using a prepared query.
+   - When indexing, there is no sign of the "keyword" mapping; the field is specified as if no additional mapping exists.
+   
+   ```bash
+   POST recipes/_doc/1
+   {
+     "description": "Delicious spaghetti recipe",
+     "ingredients": ["pasta", "tomato sauce", "meatballs"]
+   }
+   ```
+
+3. Behind the scenes of indexing:
+   - "Text" fields are analyzed, and an inverted index is created with terms emitted by the analyzer.
+   - In addition to the "text" mapping, an inverted index is created for the "ingredients" field using the "keyword" analyzer.
+   - The "keyword" inverted index contains unmodified values optimized for exact matches, aggregations, and sorting.
+   
+4. Querying the field mappings:
+   - Perform a "match_all" search query to see that the "ingredients" field within the results looks normal.
+   - To query the "keyword" mapping for exact matches, use a "term" query and specify the field name with the "keyword" mapping.
+   
+   ```bash
+   GET recipes/_search
+   {
+     "query": {
+       "match_all": {}
+     }
+   }
+   ```
+
+   ```bash
+   GET recipes/_search
+   {
+     "query": {
+       "term": {
+         "ingredients.keyword": "pasta"
+       }
+     }
+   }
+   ```
+
+   - The "term" query targets the inverted index containing the raw string values, bypassing analysis.
+
+5. Utilizing multiple mappings for a field:
+   - Multiple mappings for a field allow you to query it in different ways.
+   - In the example, the "text" mapping is used for full-text searches, while the "keyword" mapping is used for aggregations and sorting.
+   - Multi-fields offer more control over how values are indexed beyond just the data type, such as configuring synonyms or stemming for a single field.
+
+Multiple mappings for a field are powerful and enable versatile querying and indexing capabilities. They are commonly used to handle different requirements for full-text searches, aggregations, and sorting within the same field.
+
+Feel free to delete the temporary index when it's no longer needed.
+
+In the next lecture, we will explore more advanced concepts. Stay tuned!
+
+## Index Templates
+
+In this lecture, we will explore index templates, which define settings and/or mappings for indices that match specific patterns. Index templates are only applied to new indices and are useful for automating the configuration of index mappings and settings.
+
+1. Adding an index template:
+   - Use the Index Template API with the PUT HTTP verb to add a new index template.
+   - Specify the index template name, such as "access-logs", which defines mappings for indices storing HTTP access logs.
+   - The "index_patterns" parameter is used to define the index patterns that the template should be applied to. Use wildcard expressions to match multiple indices.
+   - Optionally, define mappings and settings within the template.
+   
+   ```bash
+   PUT _template/access-logs
+   {
+     "index_patterns": ["access-*"],
+     "mappings": {
+       "properties": {
+         "field1": {
+           "type": "text"
+         },
+         "field2": {
+           "type": "keyword"
+         }
+       }
+     },
+     "settings": {
+       "number_of_shards": 5,
+       "number_of_replicas": 1
+     }
+   }
+   ```
+
+2. Creating an index that matches the index template:
+   - Create a new index, such as "access-logs-2020-01-01", that matches the index pattern defined in the template.
+   - Inspect the index using the GET HTTP verb to ensure that the mappings and settings were applied as expected.
+   
+   ```bash
+   PUT access-logs-2020-01-01
+   ```
+
+   ```bash
+   GET access-logs-2020-01-01
+   ```
+
+   - The mapping and settings defined in the index template are present in the index.
+
+3. Merging settings and mappings:
+   - If a new index creation request specifies additional settings or mappings, they will be merged with the index template configuration.
+   - In case of duplicate entries, the values specified in the new index request take precedence over the index template.
+   
+4. Handling multiple index templates:
+   - An index may match multiple index templates.
+   - Index templates can have an "order" parameter to control the priority of template settings when there are multiple matches.
+   - The configuration from the template with the highest order takes precedence.
+   
+5. Updating index templates:
+   - Index templates can be updated by using the same API as when creating the template.
+   - Send the full new configuration to update mappings or settings.
+   - Existing indices that matched the index template are not modified.
+   
+6. Retrieving and deleting index templates:
+   - Use the GET and DELETE HTTP verbs with the same endpoint to retrieve or delete an index template.
+   
+7. Elastic Common Schema (ECS):
+   - The field names used in the example may seem lengthy due to the Elastic Common Schema (ECS), which will be covered in the next lecture.
+   - ECS provides a standardized and consistent naming convention for fields in log data.
+   
+Index templates are powerful for automating the configuration of mappings and settings for new indices that match specific patterns. They allow for consistency and efficiency when working with multiple indices.
+
+In the next lecture, we'll explore the Elastic Common Schema (ECS) in more detail.
+
+Certainly! Here's the updated version of the notes with explanations about the Elastic Common Schema (ECS):
+
+## Elastic Common Schema (ECS)
+
+In the previous lecture, we discussed the Elastic Common Schema (ECS), which is a specification that defines a set of common fields and their mappings in Elasticsearch. ECS was introduced to establish a standard naming convention and ensure cohesion between mappings when ingesting data from different sources into Elasticsearch.
+
+1. Motivation for ECS:
+   - In the past, field names varied depending on the source, leading to confusion and inconvenience.
+   - For example, different web servers used different field names for the same data, making it difficult for data consumers like Kibana to work with the data.
+   - ECS aims to provide consistent field names regardless of the data source, enabling easier consumption and analysis of data.
+
+2. @timestamp Field:
+   - ECS defines common fields, such as the "@timestamp" field, which represents the timestamp when an event originated.
+   - Regardless of the event source, the field is named "@timestamp" in ECS, simplifying data consumption and eliminating the need to know the event source implementation.
+   - Note that the @timestamp field is used for events, while other entities like products may have their own timestamp fields (e.g., "created_at").
+
+3. Field Sets in ECS:
+   - ECS defines multiple field sets that cover various categories, including network fields, geolocation fields, operating system fields, and more.
+   - These field sets consist of hundreds of fields that cater to different types of events.
+   - The ECS Field Reference in the documentation provides an overview of the available field sets.
+
+4. Events and Use Cases:
+   - In ECS, documents are referred to as events, as ECS aims to support a wide range of event types generated by various technologies.
+   - ECS is not limited to web server logs but covers diverse use cases such as operating system metrics, geospatial data, and more.
+   - It is most useful when storing standard events where the field structure aligns with ECS, enabling the utilization of preconfigured Kibana dashboards without field name reconfiguration.
+
+5. Automatic ECS Mapping:
+   - Tools like Filebeat and Metricbeat often structure data according to ECS automatically.
+   - When using Filebeat to ingest web server logs, ECS is handled for you, eliminating the need for manual ECS configuration.
+   - ECS becomes more relevant when building custom implementations that don't involve other Elastic Stack products.
+
+6. Awareness of ECS:
+   - While you may not actively work with ECS in most use cases, it's beneficial to be aware of its existence and understand its role in maintaining consistency across the Elastic Stack.
+   - Consider ECS a best practice and recommendation when structuring data, but it's not mandatory for every scenario.
+   - If you're interested, the documentation provides further details on ECS and the fields it offers.
+
+ECS simplifies data ingestion and analysis by providing a standardized field naming convention for common events. While its primary impact is felt when working with standard events, understanding ECS is valuable for maintaining consistency in your data structures.
+
+Certainly! Here's the updated version of the notes with explanations about dynamic mapping:
+
+## Dynamic Mapping
+
+In this section, we will explore dynamic mapping, which allows Elasticsearch to automatically create field mappings without the need for explicit mappings. Dynamic mapping makes Elasticsearch easier to use by eliminating the requirement of defining mappings before indexing documents.
+
+1. Automatic Field Mapping:
+   - When indexing a document into a new or unmapped index, Elasticsearch automatically creates field mappings for each encountered field.
+   - Let's examine the field mappings that would be generated for a document with three fields.
+
+2. Field Mapping Examples:
+   - The "created_at" field is mapped as the "date" data type, despite being specified as a string. Elasticsearch uses date detection to identify and parse dates from string values.
+   - The "in_stock" field is mapped as the "long" data type since it contains a numeric value without decimals. Elasticsearch chooses the "long" data type by default, but explicitly mapping it as an integer could save disk space.
+   - The "tags" field is interestingly mapped as a multi-field with both the "text" and "keyword" data types. The "keyword" mapping follows the naming convention discussed earlier.
+   - Elasticsearch adds multiple mappings to provide flexibility for different use cases. The "text" mapping is suitable for full-text searches, while the "keyword" mapping is optimized for exact matches, aggregations, and sorting.
+
+3. Sensible Default Behavior:
+   - Elasticsearch's default behavior aims to cover various use cases but might not always provide the most optimal mappings.
+   - For example, using the "text" mapping for the "tags" field might be unnecessary if it will only be used for exact matches and aggregations.
+   - The "ignore_above" parameter with a value of 256 is used to ignore long strings in the "keyword" mapping. This prevents storing excessively long values that are unlikely to be used for sorting or aggregations.
+
+4. Optimization Considerations:
+   - While Elasticsearch's default dynamic mapping is convenient, it may lead to unnecessary disk space usage and indexing overhead.
+   - For small-scale deployments, the impact is negligible. However, with millions of documents, it's beneficial to optimize mappings.
+   - Explicitly mapping fields or disabling mappings that won't be used can save disk space and improve indexing performance.
+   - Consider the scale of your index and evaluate whether custom mappings are necessary for efficiency gains.
+
+5. Dynamic Mapping Rules:
+   - Elasticsearch follows specific rules to determine how fields are dynamically mapped:
+     - Strings are typically mapped to a "text" field with a nested "keyword" mapping, except for cases where the value matches a date format or numeric value.
+     - Numeric detection allows mapping strings containing only numbers to either "float" or "long" fields.
+     - Integers are mapped to the "long" data type, as Elasticsearch cannot infer the intended range.
+     - Floating-point numbers and booleans are mapped to "float" and "boolean" fields, respectively.
+     - Objects are mapped as objects, and the key-value pairs within the object follow the same mapping rules.
+     - Arrays are mapped similarly to other fields, with the data type inferred from the first non-null value within the array.
+     - NULL values are ignored, and Elasticsearch does not create mappings for such fields.
+
+6. Dynamic Mapping in Practice:
+   - When indexing documents into the "products" index without explicit mappings, Elasticsearch automatically generated field mappings based on the field values supplied via the Bulk API.
+   - The mapping for the "description" and "tags" fields includes both "text" and "keyword" mappings, which may not always be the most efficient configuration.
+
+Dynamic mapping allows Elasticsearch to adapt to varying field structures, making it more user-friendly. However, it's important to consider the specific requirements and scale of your deployment to optimize mappings for efficiency.
+
+## Choosing between Explicit and Dynamic Mapping
+
+Now that we have explored both explicit and dynamic mapping, you might wonder which approach to choose. However, it's important to note that you don't necessarily have to choose one or the other. In fact, these two approaches can complement each other effectively. Let's dive into an example to illustrate this concept.
+
+1. Example Scenario:
+   - We will work with a simple example to demonstrate the combination of explicit and dynamic mapping.
+   - First, we will create a new index named "people" with an explicit mapping for the "first_name" field using the "text" data type.
+   - The mapping query is executed in advance, and you can see the resulting mapping to the right.
+
+```bash
+PUT /people
+{
+  "mappings": {
+    "properties": {
+      "first_name": {
+        "type": "text"
+      }
+    }
+  }
+}
+```
+
+2. Dynamic Mapping Example:
+   - Next, let's index a document that includes both a first and last name into the "people" index.
+   - Since there is no explicit mapping for the "last_name" field, we can observe what happens when dynamic mapping comes into play.
+
+```bash
+POST /people/_doc
+{
+  "first_name": "John",
+  "last_name": "Doe"
+}
+```
+
+3. Retrieving the Mapping:
+   - After indexing the document, let's retrieve the mapping for the "people" index again to see if the "last_name" field has been mapped.
+
+```bash
+GET /people/_mapping
+```
+
+4. Result:
+   - The response will show that the "last_name" field has been automatically mapped.
+   - This behavior occurs because dynamic mapping is enabled by default and the field did not have a pre-existing mapping.
+   - Elasticsearch automatically creates a field mapping for the new field, following the same rules as shown in the previous lecture.
+
+The example demonstrates how explicit and dynamic mapping can be combined. In this case, we had an explicit mapping for the "first_name" field but not for the "last_name" field. Dynamic mapping kicks in when a field without a pre-defined mapping is encountered, allowing Elasticsearch to automatically create a field mapping.
+
+This combination of explicit and dynamic mapping provides flexibility. You can define mappings for fields that you know in advance and allow dynamic mapping to handle new fields that arise during indexing. By leveraging both approaches, you can ensure that your index is well-structured while accommodating unforeseen fields.
+
+Remember, these recommendations are based on your specific use case and the level of control you desire over the index mappings.
+
+## Configuring Dynamic Mapping
+
+Now that you understand how dynamic mapping maps values to field mappings by default, let's explore how it can be configured to fit your needs.
+
+1. Disabling Dynamic Mapping:
+   - To disable dynamic mapping and prevent Elasticsearch from automatically creating mappings for new fields, you can set the "dynamic" setting to "false" within the "mappings" key.
+   - Let's disable dynamic mapping by setting the "dynamic" value to "false" and add the index again.
+
+```bash
+PUT /people
+{
+  "mappings": {
+    "dynamic": false,
+    "properties": {
+      "first_name": {
+        "type": "text"
+      }
+    }
+  }
+}
+```
+
+2. Indexing a Document with New Field:
+   - Let's index a document containing an additional field, "last_name," which is not defined in the mapping.
+
+```bash
+POST /people/_doc
+{
+  "first_name": "John",
+  "last_name": "Doe"
+}
+```
+
+3. Retrieving the Mapping:
+   - Upon retrieving the mapping, you will notice that the "last_name" field is not mapped.
+   - However, the document was indexed successfully and contains both fields when viewed in the "_source" object.
+
+```bash
+GET /people/_mapping
+```
+
+4. Explanation:
+   - Disabling dynamic mapping with the "dynamic" setting set to "false" instructs Elasticsearch to ignore new fields.
+   - While the field is still part of the "_source" object, it is not indexed or searchable because it lacks a field mapping.
+   - Leaving out fields during indexing is valid but renders the field non-indexed and unusable in queries.
+
+5. Using "strict" Dynamic Mapping:
+   - Another option for the "dynamic" setting is to set it as "strict."
+   - With "strict" dynamic mapping, Elasticsearch rejects any document that contains an unmapped field, similar to a relational database schema.
+
+```bash
+DELETE /people
+
+PUT /people
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "first_name": {
+        "type": "text"
+      }
+    }
+  }
+}
+```
+
+6. Indexing with Strict Dynamic Mapping:
+   - Running the index query again will result in an error because the "last_name" field is not allowed due to the "dynamic" setting being set to "strict."
+
+```bash
+POST /people/_doc
+{
+  "first_name": "John",
+  "last_name": "Doe"
+}
+```
+
+7. Fine-Grained Dynamic Mapping:
+   - Dynamic mapping can be inherited to provide fine-grained control over specific fields.
+   - In this example, we want to strictly control the mapping for the "specifications" field while allowing dynamic mapping for the "other" field.
+
+```bash
+PUT /computers
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "name": {
+        "type": "keyword"
+      },
+      "specifications": {
+        "dynamic": "strict",
+        "properties": {
+          "cpu": {
+            "properties": {
+              "name": {
+                "type": "text"
+              }
+            }
+          }
+        }
+      },
+      "other": {
+        "dynamic": true
+      }
+    }
+  }
+}
+```
+
+8. Adding New Fields Dynamically:
+   - In the "other" field, which is an object, we can add new fields dynamically without predefining them in the mapping.
+
+```bash
+POST /computers/_doc
+{
+  "name": "Desktop",
+  "specifications": {
+    "cpu": {
+      "name": "Intel Core i7",
+      "frequency": "3.6 GHz"
+    }
+  },
+  "other": {
+    "security": "Fingerprint Scanner"
+  }
+}
+```
+
+9. Numeric Detection:
+   - Numeric detection allows Elasticsearch to detect if a string contains only numeric values and automatically assigns the "float" or "long" data type during dynamic mapping.
+   - Enable numeric detection by setting the "numeric_detection" setting to "true" at the root level of the "mappings" object.
+
+10. Date Detection:
+    - Elasticsearch inspects string values to detect dates based on the default date formats.
+    - If a match is found and dynamic mapping is enabled, Elasticsearch creates a "date" field for the detected date value.
+    - You can disable date detection by setting the "date_detection" setting to "false."
+    - Additionally, you can configure custom dynamic date formats to recognize non-standard date formats sent to Elasticsearch.
+
+These are some of the common ways to configure dynamic mapping. Understanding these options allows you to customize Elasticsearch's behavior according to your specific requirements.
+
+Certainly! Here are the revised notes with explanations, including code snippets, intended for a reader who is not familiar with HTTP commands, JSON files, parameters, or Elasticsearch:
+
+## Dynamic Templates for Dynamic Mapping
+
+Dynamic templates offer a way to configure dynamic mapping in Elasticsearch. They consist of conditions and field mappings to be used when a new field is encountered without any existing mapping.
+
+1. Dynamic templates are added within the "dynamic_templates" key, which is nested within the "mappings" key.
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "integers": {
+          "match_mapping_type": "long",
+          "mapping": {
+            "type": "integer"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+2. In this example, we define a dynamic template named "integers" that applies to whole number fields.
+   - The "match_mapping_type" parameter specifies the JSON data type to match.
+   - We set the match type to "long" to match whole number fields.
+   - The field mapping in the "mapping" parameter sets the data type to "integer."
+
+3. Let's index a document with a field that matches the condition defined in the dynamic template.
+
+```json
+POST /my_index/_doc
+{
+  "my_field": 42
+}
+```
+
+4. By default, this new field would be mapped as a "long" field, but the dynamic template should change it to an "integer" field.
+
+5. Let's retrieve the mapping to verify the field mapping.
+
+```json
+GET /my_index/_mapping
+```
+
+6. In the retrieved mapping, you will see that the field has been mapped as an "integer" instead of a "long" as per the dynamic template.
+
+7. Dynamic templates allow you to customize field mappings based on conditions, providing flexibility for mapping new fields.
+
+8. Another example is adjusting how strings are mapped. By default, strings are mapped as both "text" and "keyword" fields. However, you may want to change this behavior.
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "text",
+            "ignore_above": 512
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+9. In this example, the dynamic template "strings" applies to string fields and maps them as "text" fields.
+   - The "ignore_above" parameter defines the maximum length of the string to be indexed.
+
+10. Dynamic templates can be used to tweak the default mapping rules to fit your needs.
+
+11. Advanced dynamic templates offer more options beyond matching the JSON data type.
+
+12. The "match" and "unmatch" parameters allow you to specify conditions based on the field name.
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "text_fields": {
+          "match": "text_*",
+          "unmatch": "*_keyword",
+          "mapping": {
+            "type": "text"
+          }
+        }
+      },
+      {
+        "keyword_fields": {
+          "match": "*_keyword",
+          "mapping": {
+            "type": "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+13. In this example, the "text_fields" template matches fields starting with "text_" but excludes those ending with "_keyword".
+   - The "keyword_fields" template matches fields ending with "_keyword".
+   - Fields matching the patterns defined in the dynamic templates will be mapped as "text" or "keyword" fields accordingly.
+
+14. You can use wildcards (*) in the "match" and "unmatch" parameters to provide flexibility.
+
+15. For even more flexibility, the "match_pattern" parameter can be set to "regex" to support regular expressions in the "match" parameter.
+
+16. Here's an example using the "match_pattern" parameter with regular expressions:
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "regex_fields": {
+          "match_pattern": "regex",
+          "match": ".*_name$",
+          "mapping": {
+            "type": "text"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+17. In this example, the dynamic template "regex_fields" uses a regular expression to match fields ending with "_name".
+   - Fields matching this pattern will be mapped as "text" fields.
+
+18. The "path_match" and "path_unmatch" parameters match the full field path, including nested fields.
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "nested_fields": {
+          "path_match": "name.*",
+          "mapping": {
+            "type": "text"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+19. In this example, the dynamic template "nested_fields" matches fields under the "name" object.
+   - The wildcard (*) in the "path_match" parameter matches all keys under the "name" object.
+   - Fields matching this pattern will be mapped as "text" fields.
+
+20. You can also use wildcards in the field path.
+
+21. Dynamic templates support placeholders within string values. One such placeholder is "dynamic_type," which represents the detected data type.
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "dynamic_type_template": {
+          "match_mapping_type": "*",
+          "mapping": {
+            "type": "{dynamic_type}",
+            "index": false
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+22. In this example, the dynamic template "dynamic_type_template" matches all data types.
+   - The "{dynamic_type}" placeholder is used to set the field mapping data type dynamically.
+   - The "index" parameter is set to "false" to disable indexing for all fields matched by this template.
+
+23. This example shows how placeholders can be used to add flexibility and reduce the need for multiple dynamic templates.
+
+24. Dynamic templates are helpful for optimizing mappings based on specific conditions, such as time series data.
+
+25. Before concluding, let's briefly differentiate between dynamic templates and index templates:
+   - An index template applies fixed field mappings and index settings when its pattern matches an index's name.
+   - A dynamic template, on the other hand, dynamically adds mappings for fields that match specified conditions when dynamic mapping is enabled.
+
+These explanations and code examples should help you understand dynamic templates and their usage in Elasticsearch, even if you're not familiar with HTTP commands, JSON files, parameters, or Elasticsearch itself.
+
+Sure! Here are the revised notes with explanations, including code snippets, intended for a reader who is not familiar with HTTP commands, JSON files, parameters, or Elasticsearch:
+
+## Mapping Recommendations
+
+Before we dive back into analyzers, I'd like to share a couple of recommendations regarding mapping in Elasticsearch. These are my personal opinions, so feel free to decide whether or not to follow them.
+
+1. **Use explicit mapping, especially for production clusters:** Dynamic mapping is convenient during development, but the generated field mappings may not be the most efficient. Explicit mappings can optimize disk space usage and improve performance, especially when storing a high number of documents.
+
+```json
+PUT /my_index
+{
+  "mappings": {
+    "dynamic": "strict",
+    // other mappings...
+  }
+}
+```
+
+2. To use explicit mappings, set the "dynamic" parameter to "strict" instead of "false". Setting it to "false" allows adding unmapped fields, but they will be ignored during indexing. However, querying these fields won't produce any results, leading to unexpected search outcomes. Using strict mapping ensures better control over the index.
+
+3. **Avoid mapping "text" fields as both "text" and "keyword" by default:** Dynamic mapping maps text fields as both "text" and "keyword" fields, which consumes additional disk space. Instead, consider your querying requirements and map the field accordingly:
+   - For full-text searches, add a "text" mapping.
+   - For aggregations, sorting, or filtering based on exact values, add a "keyword" mapping.
+   - Mapping a field in both ways is typically unnecessary unless you have specific use cases.
+
+4. If you have control over the application sending data to Elasticsearch, **disable type coercion**. Type coercion allows Elasticsearch to handle incorrect data types, but it's better to provide the correct data types in the JSON objects.
+
+5. For numeric fields, consider the appropriate data type based on your indexing needs. Sometimes mapping a field as "long" is unnecessary, and an "integer" would be sufficient. "Long" can store larger numbers but requires more disk space. Similarly, "double" requires twice as much disk space as "float". Choose the data type that suits your precision and space requirements.
+
+6. **Utilize mapping parameters to limit stored data**: Elasticsearch (based on Apache Lucene) provides several mapping parameters to control the amount of stored data:
+   - If a field won't be used for sorting, aggregations, and scripting, set "doc_values" to "false" to save disk space.
+   - If a field won't be used for relevance scoring, set "norms" to "false" to avoid storing relevance scoring-related data.
+   - If a field won't be used for filtering, disable indexing by setting "index" to "false". The field can still be used for aggregations, making it suitable for time series data.
+
+7. These parameters are beneficial when dealing with a large number of documents, resulting in significant space savings. However, for a small number of documents, the effort required to handle these parameters may outweigh the limited savings.
+
+8. There's no specific rule for when to use these parameters. As a general guideline, it's typically worth considering for datasets with a million or more documents.
+
+9. If you anticipate storing millions of documents, optimize your mappings from the beginning to avoid reindexing later. However, if you didn't optimize initially, it's not a significant issue as you can always reindex documents into a new index.
+
+10. These recommendations provide a good starting point for mapping optimization. Depending on your specific use case, there may be additional optimizations available. However, these suggestions cover the most common scenarios.
+
+Feel free to adjust these recommendations based on your needs and requirements. Mapping plays a crucial role in Elasticsearch performance, and considering these suggestions can help you optimize your index efficiently.
+
+## Stemming and Stop Words
+
+Let's now discuss two important concepts related to text analysis in Elasticsearch: stemming and stop words.
+
+1. **Stemming:** Stemming is the process of reducing words to their root form. It helps address the issue of different word forms (e.g., tense, plural, possessive) by mapping them to a common base form. For example, the word "loved" can be stemmed to "love," and "drinking" can be stemmed to "drink." Elasticsearch uses stemming internally to improve search results. However, not all stemmed words are valid dictionary words, depending on the configured stemming aggressiveness.
+
+2. **Stop Words:** Stop words are commonly occurring words that provide little to no value in terms of relevance. They are often filtered out during the text analysis process. Examples of stop words include "a," "the," "at," "of," and "on." These words are unlikely to affect the relevance of search results and are typically removed to improve performance. However, Elasticsearch's relevance algorithm has become better at limiting the influence of stop words on search results, so it is not necessary to remove them in most cases.
+
+```json
+GET /my_index/_analyze
+{
+  "analyzer": "standard",
+  "text": "This is an example of text analysis."
+}
+```
+
+3. By default, Elasticsearch's "standard" analyzer does not remove stop words. However, you can use custom analyzers or specific language analyzers that may include stop word removal as part of the analysis process.
+
+4. Removing stop words used to be more popular in the past, but it is now less common due to the improved relevance algorithms. The default behavior of Elasticsearch's "standard" analyzer is to retain stop words.
+
+5. Understanding stemming and stop words, let's now explore how analyzers are used during document searches.
+
+```json
+GET /my_index/_search
+{
+  "query": {
+    "match": {
+      "content": "searching documents"
+    }
+  }
+}
+```
+
+6. When searching for documents, the search query is analyzed using the same analyzer configured for the target field. This ensures that the query terms are processed consistently with the indexed documents.
+
+7. The analysis process includes steps such as lowercasing, tokenization (splitting text into individual tokens), stemming, and stop word removal (if applicable). The processed query terms are then matched against the indexed tokens for retrieval.
+
+Understanding how stemming, stop words, and analyzers work together helps improve search accuracy and relevance. Analyzers play a crucial role in ensuring consistent analysis of both indexed documents and search queries.
+
+## Analyzers in Search Queries
+
+In the previous lecture, I explained how analyzers are used when indexing "text" fields. Now, let's discuss how analyzers come into play during search queries.
+
+1. When indexing a document, the field values are processed by the configured analyzer for the field. The analysis process includes steps such as lowercasing, tokenization, stemming, and stop word removal. The analyzed terms are then stored in the inverted index for efficient searching.
+
+2. However, you might wonder how we can search for values that have undergone analysis and potentially changed. Let's clarify this with an example.
+
+```json
+GET /my_index/_analyze
+{
+  "analyzer": "stemming_analyzer",
+  "text": "I love drinking bottles of wine."
+}
+```
+
+3. In this example, we use a custom analyzer named "stemming_analyzer" that behaves similarly to the "standard" analyzer but also performs stemming for English words. The diagram shows how the sentence is analyzed, with terms lowercased, some words stemmed, and punctuation removed.
+
+4. Now, suppose we search for the term "drinking." During indexing, the word "drinking" was stemmed to its root form, which is "drink." So, will the document match the query?
+
+5. Yes, it will. The search query goes through the same analysis process as when the field value was indexed. Elasticsearch examines the mapping for the "description" field, determines that it's a "text" field, and checks for the configured analyzer.
+
+6. In this example, the "stemming_analyzer" is specified in the field mapping, so it is used during the search. The search query term "drinking" is also stemmed by the analyzer, resulting in the term "drink." This matches the term stored within the inverted index for the "description" field, and thus, the document is considered a match.
+
+7. It's important to note that the same analyzer is used both during indexing and at search time to ensure consistent analysis. This consistency prevents unpredictable search results.
+
+8. By default, queries on "text" fields are case-insensitive. For example, if a query is entered in all capitalized letters, it will be lowercased at search time by the "standard" analyzer. However, case sensitivity can be altered by specifying a different analyzer, although this is rarely necessary and requires caution.
+
+Understanding that analyzers are used consistently during indexing and search queries helps ensure accurate matching of values, even if they differ from the original field values specified in the search query.
+
+## Built-in Analyzers and Custom Analyzers
+
+In Elasticsearch, there are several built-in analyzers available for your convenience. These analyzers are pre-configured combinations of character filters, token filters, and a tokenizer. Let's explore the most important ones:
+
+1. The "standard" analyzer is the default analyzer we've discussed previously. It splits text into terms at word boundaries, removes punctuation, and lowercases letters. It also includes an optional "stop" token filter to remove common stop words (disabled by default).
+
+2. The "simple" analyzer is similar to the "standard" analyzer but splits the input text by anything other than a letter. It lowercases terms using the "lowercase" tokenizer, which is a performance hack to avoid redundant processing.
+
+3. The "whitespace" analyzer splits the input text at whitespace without lowercasing letters. It preserves the original case of terms.
+
+4. The "keyword" analyzer is a no-op analyzer that leaves the input text intact and outputs it as a single term. This analyzer is used for fields of the "keyword" data type, where exact matching is required.
+
+5. The "pattern" analyzer allows you to define a regular expression to match token separators, determining how the input text is split into tokens. It offers flexibility in defining custom splitting patterns.
+
+Additionally, Elasticsearch provides language-specific analyzers. These analyzers handle language-specific quirks and are good starting points for most use cases. You can find the list of available language analyzers in the Elasticsearch documentation.
+
+To use these analyzers within field mappings, simply specify the name of the analyzer in the "analyzer" mapping parameter. For example, to use the "english" analyzer for a "description" field:
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "description": {
+        "type": "text",
+        "analyzer": "english"
+      }
+    }
+  }
+}
+```
+
+While the built-in analyzers can be used as-is, many of them can also be customized by adjusting their behavior. For example, the "standard" analyzer can be configured to remove stop words, which is not enabled by default. To configure a built-in analyzer, you can create a custom analyzer by extending the existing analyzer.
+
+Here's an example of creating a custom analyzer named "remove_english_stop_words" by extending the "standard" analyzer:
+
+```json
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "remove_english_stop_words": {
+          "type": "standard",
+          "stopwords": "_english_"
+        }
+      }
+    }
+  }
+}
+```
+
+In this example, the custom analyzer removes English stop words by specifying the "stopwords" parameter with the value "_english_". The structure of the query might appear different, but we will cover it in detail in the next lecture.
+
+To use the custom analyzer, simply specify its name in the field mapping:
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "description": {
+        "type": "text",
+        "analyzer": "remove_english_stop_words"
+      }
+    }
+  }
+}
+```
+
+That's it for the built-in analyzers and creating custom analyzers. These analyzers allow you to tailor the analysis process to your specific needs, whether by using the built-in options or by creating custom configurations.
+
+## Creating a Custom Analyzer
+
+To create a custom analyzer, we need to follow a few steps. Let's go through them:
+
+1. First, we need to add an object named "analysis" within the "settings" object of our index. This is where we'll configure the analyzer.
+
+2. Inside the "analysis" object, we add another object named "analyzer." Analyzers must be declared within this object.
+
+3. We specify the name of our custom analyzer as a key with an object as its value. For example, let's name it "my_custom_analyzer" for demonstration purposes.
+
+4. Now comes the interesting part—configuring the analyzer. We'll define the behavior we want for our custom analyzer.
+
+   Let's consider some text that contains HTML markup and entities. Typically, you'd want to remove these before indexing into Elasticsearch. However, for this example, let's assume they haven't been stripped.
+
+   Analyzing this text using the "standard" analyzer would yield strange terms since it treats HTML tags and entities as separate tokens.
+
+   To address this, we can use the "html_strip" character filter, which removes HTML tags and decodes entities. We'll modify the query to include this character filter.
+
+5. Remove the "standard" analyzer from the query so that we can see the effect of the character filter on its own.
+
+6. We can add a parameter named "char_filter" to our custom analyzer, which contains an array of character filter names. In this case, we'll include only the "html_strip" character filter.
+
+7. We still need to specify a tokenizer. For simplicity, let's use the "standard" tokenizer.
+
+8. Next, we'll add token filters. We'll start by including the "lowercase" token filter to lowercase terms.
+
+9. We can also remove stop words by adding the "stop" token filter. By default, it removes stop words for the English language. However, we'll see how to configure it for a different language shortly.
+
+10. As a third token filter, let's use the "asciifolding" token filter to convert special characters to their ASCII equivalents. This will allow variations in letter forms to match.
+
+11. With our custom analyzer configured, we can create the index and test the analyzer. You can use the Analyze API to see how each part of the analyzer affects the output.
+
+12. To use the custom analyzer in field mapping, specify its name as the value for the "analyzer" parameter, just as we did with built-in analyzers.
+
+Congratulations! You now know how to create custom analyzers in Elasticsearch. You can tailor analyzers to suit your specific needs by combining character filters, tokenizers, and token filters. Remember that you can also configure the behavior of built-in analyzers or create custom configurations by extending them.
+
+Sure! Here are the revised notes with explanations and code snippets:
+
+## Creating a Custom Analyzer
+
+To create a custom analyzer, we need to follow a few steps. Let's go through them:
+
+1. First, we need to add an object named "analysis" within the "settings" object of our index. This is where we'll configure the analyzer.
+
+2. Inside the "analysis" object, we add another object named "analyzer." Analyzers must be declared within this object.
+
+3. We specify the name of our custom analyzer as a key with an object as its value. For example, let's name it "my_custom_analyzer" for demonstration purposes.
+
+4. Now comes the interesting part—configuring the analyzer. We'll define the behavior we want for our custom analyzer.
+
+   Let's consider some text that contains HTML markup and entities. Typically, you'd want to remove these before indexing into Elasticsearch. However, for this example, let's assume they haven't been stripped.
+
+   Analyzing this text using the "standard" analyzer would yield strange terms since it treats HTML tags and entities as separate tokens.
+
+   To address this, we can use the "html_strip" character filter, which removes HTML tags and decodes entities. We'll modify the query to include this character filter.
+
+5. Remove the "standard" analyzer from the query so that we can see the effect of the character filter on its own.
+
+6. We can add a parameter named "char_filter" to our custom analyzer, which contains an array of character filter names. In this case, we'll include only the "html_strip" character filter.
+
+7. We still need to specify a tokenizer. For simplicity, let's use the "standard" tokenizer.
+
+8. Next, we'll add token filters. We'll start by including the "lowercase" token filter to lowercase terms.
+
+9. We can also remove stop words by adding the "stop" token filter. By default, it removes stop words for the English language. However, we'll see how to configure it for a different language shortly.
+
+10. As a third token filter, let's use the "asciifolding" token filter to convert special characters to their ASCII equivalents. This will allow variations in letter forms to match.
+
+11. With our custom analyzer configured, we can create the index and test the analyzer. You can use the Analyze API to see how each part of the analyzer affects the output.
+
+12. To use the custom analyzer in field mapping, specify its name as the value for the "analyzer" parameter, just as we did with built-in analyzers.
+
+Congratulations! You now know how to create custom analyzers in Elasticsearch. You can tailor analyzers to suit your specific needs by combining character filters, tokenizers, and token filters. Remember that you can also configure the behavior of built-in analyzers or create custom configurations by extending them.
+
+## Adding an Analyzer to an Existing Index
+
+In the previous lecture, we learned how to add a custom analyzer at index creation time. But what if you already have an existing index and want to add an analyzer to it? Let's explore how to do that.
+
+To add an analyzer to an existing index, we can use the Update Index Settings API. This API allows us to update various settings of an index, including analyzers. The request body format is similar to the "settings" object used during index creation.
+
+1. Start by sending a POST request to the Update Index Settings API, specifying the index you want to update:
+
+```json
+POST /your_index/_settings
+```
+
+2. In the request body, include the "analysis" object at the root level. This object follows the same format as seen in the previous lecture.
+
+```json
+POST /your_index/_settings
+{
+  "analysis": {
+    "analyzer": {
+      "new_analyzer": {
+        "type": "custom",
+        "tokenizer": "standard",
+        "filter": ["lowercase"]
+      }
+    }
+  }
+}
+```
+
+3. If the index is currently open and serving requests, you will encounter an error stating that non-dynamic settings cannot be updated for open indices. This error occurs because some settings, including analysis settings, are considered static and can only be changed while the index is closed.
+
+4. To resolve this, close the index by sending a POST request to the Close Index API:
+
+```json
+POST /your_index/_close
+```
+
+5. After successfully closing the index, re-send the request to update the index settings. This time, you should not encounter any errors.
+
+6. Once the settings update is complete, you can reopen the index by sending a POST request to the Open Index API:
+
+```json
+POST /your_index/_open
+```
+
+7. With the index open again, the new analyzer is ready to be used within field mappings.
+
+8. To verify that the analyzer has been added, you can retrieve the index settings by sending a GET request to the Get Index Settings API:
+
+```json
+GET /your_index/_settings
+```
+
+9. In the response, you will see the updated index settings, including the newly added analyzer.
+
+It's important to note that closing and reopening an index is not specific to analyzers; it applies to any analysis-related changes such as modifying character filters, tokenizers, or token filters. While this process may temporarily make the index unavailable for indexing and searching, it can be done during maintenance windows or with proper planning.
+
+In situations where downtime is not acceptable, an alternative approach is to reindex the documents into a new index with the desired configuration and use an index alias during the transition period.
+
+Updating analyzers follows a similar process, requiring the index to be closed, updating the analyzer settings, reopening the index, and verifying the changes using the Get Index Settings API.
+
+Now you know how to add analyzers to existing indices and update analyzers when necessary.
+
+## Updating an Existing Analyzer
+
+Sometimes you may need to update an existing analyzer. While it's best to get the analyzer configuration right the first time, circumstances may change, and updates may become necessary. In this lecture, we'll explore how to update an existing analyzer.
+
+To demonstrate the process, we have an index with a custom analyzer that hasn't been used in a field mapping yet. Let's first add a "description" field to the index that utilizes the "my_custom_analyzer" analyzer.
+
+1. Add the "description" field to the index mapping, specifying the "my_custom_analyzer" analyzer:
+
+```json
+PUT /your_index/_mapping
+{
+  "properties": {
+    "description": {
+      "type": "text",
+      "analyzer": "my_custom_analyzer"
+    }
+  }
+}
+```
+
+2. Index a document with the "description" field to populate the index with data.
+
+3. Perform a search query that searches the "description" field for the term "that." Note that this query includes the "analyzer" parameter, overriding the default analyzer specified in the field mapping.
+
+```json
+GET /your_index/_search
+{
+  "query": {
+    "match": {
+      "description": {
+        "query": "that",
+        "analyzer": "keyword"
+      }
+    }
+  }
+}
+```
+
+4. Since the custom analyzer is configured to remove stop words, searching for the term "that" with the default analyzer would yield no results. However, by specifying the "keyword" analyzer in the query, we can prevent stop words from being removed and search for the term as-is.
+
+5. Now let's focus on updating the existing analyzer. We can achieve this using the Update Index Settings API.
+
+6. Send a POST request to the Update Index Settings API, specifying the analyzer's full configuration. In this case, we'll remove the "stop" token filter from the analyzer.
+
+```json
+POST /your_index/_settings
+{
+  "analysis": {
+    "analyzer": {
+      "my_custom_analyzer": {
+        "type": "custom",
+        "tokenizer": "standard",
+        "filter": ["lowercase"]
+      }
+    }
+  }
+}
+```
+
+7. Before modifying the analyzer, we need to close the index to make the changes.
+
+```json
+POST /your_index/_close
+```
+
+8. After successfully closing the index, re-send the request to update the index settings. This time, you should not encounter any errors.
+
+9. Once the settings update is complete, reopen the index by sending a POST request to the Open Index API.
+
+```json
+POST /your_index/_open
+```
+
+10. Verify that the analyzer has been updated by retrieving the index settings using the Get Index Settings API.
+
+```json
+GET /your_index/_settings
+```
+
+11. The response will show the updated index settings, confirming the removal of the "stop" token filter from the "my_custom_analyzer" analyzer.
+
+12. Index another document with the same value as the first one.
+
+13. Run the search query again. This time, both documents should match the query because the first document has been reindexed with the updated analyzer.
+
+Updating an existing analyzer can introduce challenges. In our example, documents were analyzed using two different versions of the analyzer, which can lead to inconsistent search results. To mitigate this, you can either reindex documents into a new index with the updated analyzer or use the Update By Query API to reindex specific documents.
+
+It's crucial to be cautious when updating analyzers as they can have significant impacts on search results. Whenever possible, strive to get your analyzer configuration right the first time. However, if updates are necessary, handle them appropriately to avoid potential issues.
+
+Now you know how to update an existing analyzer in Elasticsearch.
+
+## Writing Search Queries with Query DSL
+
+Now that we understand mapping and analyzers, we can finally dive into searching for data. There are two ways to write search queries in Elasticsearch: URI search and the Query DSL. URI search involves including the search queries as a query parameter, while the Query DSL is preferred and allows us to write search queries in JSON format within the request body.
+
+In this course, we'll focus on the Query DSL, as it provides access to all the search features and is more flexible. To write a search query using the Query DSL, we need to use the Search API with the appropriate HTTP verb and request path, as shown in the example below:
+
+```json
+POST /your_index/_search
+```
+
+Next, we'll add the request body, which should be a JSON object. We can add various parameters to configure the search request, such as pagination and sorting. The search query itself is defined within an object named "query." Let's start with the simplest possible search query, which is the "match_all" query that matches all documents:
+
+```json
+POST /your_index/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+In this example, the "match_all" query is used without any additional parameters. This query matches all documents in the index.
+
+After running the query, we can inspect the results. Here are some key elements to note:
+
+- "took" indicates the time it took Elasticsearch to execute the request, measured in milliseconds.
+- "timed_out" is a boolean flag indicating whether the request timed out.
+- "_shards" provides information about the shards involved in executing the request, including the total number of shards, successful and failed shards, and skipped shards.
+- "hits" contains the documents that matched the query, along with relevant metadata.
+- Within the "hits" object, "total" represents the total number of documents that matched the query.
+- "max_score" holds the highest relevance score calculated by Elasticsearch for any matching document.
+- The "hits" object nested within the "hits" object contains the actual documents that matched the query, along with additional metadata for each document, such as the index name, unique identifier, relevance score, ignored fields, and the document itself stored within the "_source" key.
+
+The example above demonstrates a basic search query that matches all documents. However, for more useful queries, we'll explore different query types that allow us to define criteria for matching documents.
+
+Let's continue with more practical search queries.
+
+Please note that the provided code snippets are placeholders and need to be replaced with the actual index name, field names, and query parameters relevant to your specific use case.
+
+## Term Level Queries in Elasticsearch
+
+In Elasticsearch, one of the query groups is called "term level queries." These queries are used to search structured data for exact values, making them suitable for filtering documents based on specific criteria such as color, brand, price, etc.
+
+The key characteristic of term level queries is that they are not analyzed. This means that the value being searched for is used as-is to lookup values within the inverted index. Let's explore an example to understand this concept better.
+
+Suppose we have an index of clothing products, and each document contains a field named "brand.keyword." This field stores the brand name and is mapped as a keyword field. Below is an example document along with the inverted index for the "brand.keyword" mapping:
+
+```json
+{
+  "brand.keyword": "Nike"
+}
+```
+
+Now, let's say we want to find all products where the brand equals "Nike." We can achieve this using a term level query because we need to search for an exact value. Here's an example of such a query:
+
+```json
+{
+  "query": {
+    "term": {
+      "brand.keyword": {
+        "value": "Nike"
+      }
+    }
+  }
+}
+```
+
+In this query, we use the "term" query to search the "brand.keyword" field for the exact value "Nike." The term level query matches our example document because the value we're searching for matches what is stored within the inverted index.
+
+It's important to note that term level queries match exact terms and are case-sensitive. If we were to lowercase the search value, the document would no longer match. Additionally, the entire value must match, and partial matches will not result in a match. For example, searching for "Ni" would not match the document in the given example.
+
+Term level queries can be used with various data types such as keyword, numbers, dates, etc. However, there's a common mistake that many people make: using term level queries with fields of the text data type. Let's explore why this should be avoided.
+
+Suppose we want to find all products that contain the term "Nike" within their names. Since the "name" field is of the text data type, its values are analyzed during indexing. The inverted index for our example document would look like this:
+
+```json
+{
+  "name": ["nike", "running", "shoes"]
+}
+```
+
+When using a term level query with the search term "Nike," it won't yield any results. This is because the exact term "Nike" is not present within the inverted index. We're comparing an analyzed value with something that isn't analyzed, which is like comparing apples to oranges.
+
+To clarify further, if we were to search for "nike" in lowercase, we would get a match. However, searching for the exact product name as it appears in the document would not yield any results because the field value was analyzed during indexing, causing it to be tokenized and transformed to lowercase.
+
+Using term level queries with the text data type can lead to unexpected and unpredictable results. Comparing analyzed data with non-analyzed data can cause queries to fail to match as expected. Therefore, it's crucial to avoid using term level queries on fields with the text data type.
+
+Instead, when searching for text values, use term level queries with fields that have the keyword data type. These fields store values as exact terms without performing analysis.
+
+To recap, term level queries should be used for matching exact terms and are not suitable for fields with the text data type. Understanding this distinction is important to avoid unexpected results and ensure accurate search queries.
+
+Now, let's write a couple of queries to put our knowledge into practice.
+
+Please note that the provided code snippets are placeholders and need to be replaced with the actual index name, field names, and query parameters relevant to your specific use case.
+
+Sure! Here's the revised text with detailed exemplar code:
+
+## Term Level Queries in Elasticsearch
+
+Now that we have covered the basics of term level queries, let's take a closer look at them. One of the most important term level queries is the "term" query, which you briefly saw in the previous lecture. Let's see it in action.
+
+I have prepared the basic structure of a search query, as you've seen before. Let's add a term query to it.
+
+```json
+{
+  "query": {
+    "term": {
+      "tags.keyword": "Vegetable"
+    }
+  }
+}
+```
+
+In this query, we use the term query to search the "tags.keyword" field for the exact value "Vegetable." Notice that we use the keyword mapping instead of the text mapping. This is because term level queries are not analyzed and are used for exact matching.
+
+Even though the test data specified arrays for the "tags" field, we don't need to handle that complexity within search queries. Elasticsearch automatically handles multi-valued fields, so we simply enter the name of the field, and everything is handled automatically. In this example, a document will match if it contains the "Vegetable" tag.
+
+Let's run the query.
+
+As you can see, it doesn't match anything. Upon closer inspection, we realize that all the product tags begin with a capital letter. Let's correct that and try again.
+
+And there we go! This demonstrates that term level queries are case-sensitive.
+
+Apart from searching for text values, we can also search for other data types. Here are a couple of examples:
+
+- Searching for a boolean value (true or false) to match active products:
+
+```json
+{
+  "query": {
+    "term": {
+      "active": true
+    }
+  }
+}
+```
+
+- Searching for numeric values (integers, doubles, or floating points) to match products that are almost sold out:
+
+```json
+{
+  "query": {
+    "term": {
+      "stock_quantity": 1
+    }
+  }
+}
+```
+
+- Searching for dates, with or without the time part, to match a specific date:
+
+```json
+{
+  "query": {
+    "term": {
+      "created_at": "2022-01-01"
+    }
+  }
+}
+```
+
+So far, the term queries you've seen were written using a shorthand syntax. However, there's a more explicit and verbose syntax available, which you might prefer for improved readability. Here's an example:
+
+```json
+{
+  "query": {
+    "term": {
+      "tags.keyword": {
+        "value": "Vegetable",
+        "boost": 1.0,
+        "case_insensitive": false
+      }
+    }
+  }
+}
+```
+
+In this explicit syntax, you can specify additional parameters for the term query. For example, the "case_insensitive" parameter allows you to perform case-insensitive searches by setting it to true. However, note that this parameter is only available in recent Elasticsearch versions.
+
+Let's test it by searching for the tag in lowercase letters:
+
+```json
+{
+  "query": {
+    "term": {
+      "tags.keyword": {
+        "value": "vegetable",
+        "case_insensitive": true
+      }
+    }
+  }
+}
+```
+
+Unlike the first time we searched for an all-lowercase tag, the query now matches some documents.
+
+So far, we've only searched for a single term. If we want to search for multiple terms, there's a variation of the term query named "terms" that serves that purpose. It works in a similar way, but instead of a single value, we provide an array of values.
+
+Let's adjust the first query to search for multiple terms:
+
+```json
+{
+  "query": {
+    "terms": {
+      "tags.keyword": ["Soup", "Meat"]
+    }
+  }
+}
+```
+
+In this query, the document will match if it contains at least one of the supplied values ("Soup" or "Meat").
+
+Let's run it and scroll through the results to see documents containing either of the tags (or both, if we're lucky). Keep in mind that only the first ten documents are returned by default.
+
+That covers the basics of searching for exact terms in Elasticsearch using term level queries. Remember to use these queries with keyword mappings and not full-text fields to ensure accurate results.
+
+Please note that the provided code snippets are placeholders and need to be replaced with the actual index name, field names, and query parameters relevant to your specific use case.
+
+## Retrieving Multiple Documents Based on IDs
+
+Earlier in the course, I showed you how to retrieve a single document based on its identifier. In this short lecture, I want to show you how to use a term level query to retrieve multiple documents at once based on their IDs. In both cases, we are querying the value of a document's `_id` field.
+
+The name of the query we'll use is "ids". Let's add that to the partial query structure that I have prepared:
+
+```json
+{
+  "query": {
+    "ids": {
+      "values": ["1", "2", "3"]
+    }
+  }
+}
+```
+
+In this example, we specify the IDs as an array of values within the "values" parameter. Let's retrieve three documents using this query.
+
+Now, let's run the query.
+
+Within the results, we can see that three documents matched the query. These documents are returned within the "hits" key.
+
+Note that not all IDs are required to match. The query simply returns any documents that are found with the specified IDs. So if you supply ten IDs for the query, the results will contain between zero and ten documents.
+
+In situations where you are unsure whether the IDs exist within your index, you may want to compare the number of documents matched by the query with the number of IDs you supplied.
+
+Using the "ids" query is particularly useful when you are using the same identifiers for your Elasticsearch documents as in a relational database, for instance. The "ids" query makes it easy to retrieve specific documents because you already know their IDs.
+
+That's all for this lecture.
