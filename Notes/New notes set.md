@@ -4582,3 +4582,730 @@ There are a few more parameters related to inner hits, but they are not frequent
 That's it for inner hits! With the nested query, we can query nested objects independently. However, if we also want to know why a particular object matched the query, we can utilize inner hits. Inner hits provide additional information about the specific nested objects that caused the match.
 
 If you have any questions or need further clarification, feel free to ask!
+
+## Limitations of Nested Fields
+
+Let's conclude our discussion on nested fields by exploring a few limitations that you should be aware of. It's important to note these limitations, although there's no guarantee that you will end up using nested fields in your specific use case. 
+
+1. Performance Considerations: Indexing and querying nested fields can be expensive in terms of performance. Elasticsearch creates an Apache Lucene document for each nested object. For example, if you index a million documents, each containing ten nested objects, you will end up with a total of 11 million documents. However, your index will still show only one million documents since the Lucene documents are hidden and managed internally. This behavior comes with a performance cost. Elasticsearch is generally fast, so unless you're dealing with large amounts of data and high query throughput, you may not notice a significant performance penalty. However, as you scale up your usage, you may experience degraded performance and encounter problems.
+
+To mitigate the risk of performance degradation, Elasticsearch provides a couple of safeguards. Let's briefly look at them:
+
+2. Specialized Queries: Working with nested fields requires the use of specialized queries. However, as you saw earlier, the nested query is highly flexible and allows us to nest any normal query within it. This doesn't necessarily limit us but requires us to write queries in a slightly different way.
+
+3. Limit on Nested Fields: There is a limit on the number of fields with the nested data type that can be added to an index. By default, this limit is set to 50, which is typically sufficient for most use cases. It is unlikely that you will encounter this limit. If, for some reason, you do need to increase this limit, it's important to understand that it may indicate an incorrect mapping of your documents.
+
+4. Maximum Nested Documents: Each document in Elasticsearch can contain a maximum of 10,000 nested documents across all nested fields within that document. This limit is in place to prevent out-of-memory exceptions. While it is possible to increase this limit, it is generally not recommended. It's important to consider this limit when designing your data structure. 
+
+Let's consider an example to illustrate the impact of these limitations. Suppose we are running a service similar to Shopify, where we provide webshops for companies. It may seem logical to store the orders for each webshop within a nested "orders" field. However, if we analyze the performance implications of storing orders in this way within Elasticsearch, it becomes clear that it's not a good design. We have two nested fields: "orders" and "lines" (representing the order lines within each order). The number of objects between these two fields contributes to the 10,000 nested objects limit. It's only a matter of time before a customer reaches 10,000 orders, especially considering that each order contains at least one order line. This design is not scalable.
+
+A better approach would be to split the data into two separate indices: one for webshops and one for orders. This way, the 10,000 nested objects limit only applies to the "lines" field within the orders index. The number of objects within a document does not grow over time because once an order is complete, no new order lines are added. Therefore, no order will ever exceed or come close to the 10,000 nested objects limit. When mapping your documents and deciding to use nested fields, it's crucial to keep this limitation in mind. Consider whether it is realistic for a document to have thousands of nested objects. If it is, you might need to reconsider your document mapping strategy.
+
+By keeping these limitations in mind and designing your document mappings accordingly, you can work effectively with nested fields in Elasticsearch.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Joining Queries in Elasticsearch
+
+In this section, we will explore joining queries, which allow us to query relationships between documents. While we have covered a lot about searching for documents, we will now focus on querying relationships in Elasticsearch.
+
+To begin, let's briefly consider how data can be stored in a relational database such as MySQL or PostgreSQL. Suppose we want to store employees in a database, where each employee is associated with an address. In relational databases, it is best practice to normalize the data by storing it in two different tables and linking them with a foreign key. This normalization approach allows for efficient querying of relationships between different pieces of data, which is the core principle of relational databases.
+
+Similarly, we might want to store information about departments within companies and the cities where they are located. In this case, the database schema could include a table for departments and another for cities, where each department has a foreign key linking it to the city in which it is located. This represents a one-to-many relationship between departments and cities.
+
+Now, why are we discussing relational databases in the context of Elasticsearch? The reason is that most developers are familiar with relational databases, and it's important to understand that storing data in Elasticsearch follows a different approach. In Elasticsearch, denormalizing the data is generally recommended for optimal performance. This means that instead of splitting the data into separate tables and using foreign keys, you store the data in a denormalized form. This approach is similar to how data is stored in NoSQL databases like MongoDB, where joins are either avoided altogether or handled at the application level.
+
+You might wonder if denormalizing the data is inefficient and leads to wasted disk space. While it's true that denormalization may result in redundant data storage (e.g., storing the city name for each department), it's important to note that Elasticsearch is not typically used as a primary data store. By not treating Elasticsearch as the primary data store, we gain the flexibility to store data in ways that are optimized for quick data retrieval. Therefore, sacrificing disk space to increase the performance and throughput of the Elasticsearch cluster can be an acceptable trade-off.
+
+It's worth mentioning that Elasticsearch does not support joins in the same way as relational databases. However, it does offer some simple ways of joining documents. It's important to note that these join-like queries in Elasticsearch can be less efficient compared to relational databases, especially when dealing with a large number of documents. Keep this in mind when working with joining queries and consider the performance implications.
+
+In the upcoming lectures, we will explore the tools and techniques available in Elasticsearch for mapping and querying document relationships. Elasticsearch provides specific functionalities to handle relationships between documents effectively.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Defining Document Relationships in Elasticsearch
+
+The first step in defining document relationships in Elasticsearch is to incorporate them into the mapping. Elasticsearch provides a special type of field called a "join field" for joining documents and defining relationships within the document hierarchy.
+
+Let's start by adding the mapping for the join field. The join field can be named anything, similar to other fields. For demonstration purposes, let's name it "join_field". We'll define it as an object field, which is achieved by assigning the value of "object" to the field.
+
+```json
+"join_field": {
+  "type": "object"
+}
+```
+
+To specify that this field represents a join relationship, we need to set its data type to "join". This special data type is dedicated to defining document relationships.
+
+```json
+"join_field": {
+  "type": "join"
+}
+```
+
+Next, we need to define the possible relations between different types of documents within the document hierarchy. This is done using the "relations" object within the join field.
+
+```json
+"join_field": {
+  "type": "join",
+  "relations": {}
+}
+```
+
+Within the "relations" object, we define key-value pairs that represent the relationships between documents. Let's continue with the example from the previous lecture and add a relationship between a "department" and an "employee".
+
+```json
+"join_field": {
+  "type": "join",
+  "relations": {
+    "department": "employee"
+  }
+}
+```
+
+In this example, "department" is the key representing the parent document type, and "employee" is the value representing the child document type. The names "department" and "employee" are arbitrary and can be chosen as per your preference. It's important to note that the key does not need to match the name of the index.
+
+By defining this relationship, we have effectively established a parent-child relationship between the "department" and "employee" document types. This enables us to leverage this relationship when adding documents and querying the data based on these relationships.
+
+If we wanted to define multiple child types for the same parent, we could change the value from a single string to an array of strings. Each string within the array would represent a child document type associated with the parent.
+
+Now that we have defined the document relationship, let's proceed by adding some sample documents to the index to have data for working with in subsequent lectures.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Adding Documents and Defining Document Relations
+
+Now that we have the mapping in place, let's proceed to add some documents to the index. When working with document relationships, the process of adding documents is slightly different than usual.
+
+Let's start by adding two departments to the index using the following queries:
+
+```json
+PUT department/_doc/1
+{
+  "name": "Department 1"
+}
+
+PUT department/_doc/2
+{
+  "name": "Department 2"
+}
+```
+
+Note that when adding documents related to a parent document, we need to specify which relation the document belongs to. In this case, since we are adding departments, we need to specify the relation named "departments" (which is the key of the join field defined in the mapping).
+
+To do this, we add a key that matches the name of the join field ("join_field" in our example) and set the value to "department". This indicates that the document is a department.
+
+```json
+PUT department/_doc/1
+{
+  "name": "Department 1",
+  "join_field": "department"
+}
+
+PUT department/_doc/2
+{
+  "name": "Department 2",
+  "join_field": "department"
+}
+```
+
+Next, let's add some employees to the index. For each employee, we need to specify the parent document to which the employee belongs (i.e., the department). This is done by adding an object as the value for the join field.
+
+```json
+PUT department/_doc/3
+{
+  "name": "Employee 1",
+  "join_field": {
+    "name": "employee",
+    "parent": "1"
+  }
+}
+```
+
+In this example, we are adding an employee document ("Employee 1") to the department with an ID of "1". We specify the relation name as "employee" and set the parent option to "1" to associate the employee with the department.
+
+However, when adding child documents, such as employees, we encounter an error related to the join field and routing. Routing is a mechanism used by Elasticsearch to determine the shard where a document is stored.
+
+To resolve this issue, we need to include a query parameter named "routing" with a value that matches the ID of the parent document. This ensures that the parent and child documents are stored on the same shard.
+
+```json
+PUT department/_doc/3?routing=1
+{
+  "name": "Employee 1",
+  "join_field": {
+    "name": "employee",
+    "parent": "1"
+  }
+}
+```
+
+After adding the routing query parameter, the document can be successfully added, and the department and employee are stored on the same shard.
+
+To add more employees to the index, you can repeat the process by specifying the parent department and adjusting the routing query parameter accordingly. For example:
+
+```json
+PUT department/_doc/4?routing=2
+{
+  "name": "Employee 2",
+  "join_field": {
+    "name": "employee",
+    "parent": "2"
+  }
+}
+```
+
+By following this approach, you can add as many departments and employees as needed, establishing the desired document relationships.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Querying Document Relations
+
+Now let's write our first query in the context of document relations. We'll start with a simple query named "parent_id," which retrieves the child documents based on the ID of the parent documents.
+
+In our case, we can use this query to retrieve the employees for a given department.
+
+Let's add the query object:
+
+```json
+{
+  "query": {
+    "parent_id": {}
+  }
+}
+```
+
+To specify the relation we want to query, we need to include the `type` option, which corresponds to the child relation type we want to retrieve. In this case, we set the value to "employee" since we want to retrieve employee documents.
+
+```json
+{
+  "query": {
+    "parent_id": {
+      "type": "employee"
+    }
+  }
+}
+```
+
+To specify the ID of the parent document (department), we use the `id` option. Let's choose the first department (ID: 1) as an example:
+
+```json
+{
+  "query": {
+    "parent_id": {
+      "type": "employee",
+      "id": "1"
+    }
+  }
+}
+```
+
+Now let's run the query and see if we get the expected results. The query should match the employees associated with the specified department.
+
+Within the search results, we can see that the query matches the documents, which is what we expected based on our test data.
+
+If we change the parent ID to "2," the query should match the employees in the other department. Let's try that:
+
+```json
+{
+  "query": {
+    "parent_id": {
+      "type": "employee",
+      "id": "2"
+    }
+  }
+}
+```
+
+Indeed, we can now see the employees from the other department in the search results.
+
+That's all there is to this query. As promised, it's quite straightforward.
+
+Before ending the lecture, I'd like to mention two things about the search results:
+
+1. Notice how the hits contain the join field within the `_source` key. In this case, we already know the values at query time, so it might not be relevant to us. However, in other queries, it can be useful to check the types of the matching documents.
+
+2. Additionally, notice how the hits include a `_routing` key with a value of "2." This number matches the ID of the parent document (department). Remember that a parent document and all of its child documents must be placed on the same shard, as mentioned in the previous lecture. The `_routing` key indicates that Elasticsearch uses the ID of the parent document to determine the shard on which the documents are stored. This is the default behavior and can be overridden by using the `routing` query parameter. However, custom routing is not commonly used.
+
+If all of this went over your head, don't worry! It's just some background knowledge that's not essential to understand when using the "parent_id" query.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Querying Child Documents Based on Parent Document Criteria
+
+In some cases, retrieving child documents based on the ID of their parent document might not be sufficient. You might not know the parent document's ID, or you might want to add additional conditions other than the document ID. This can be accomplished with a query named "has_parent."
+
+The "has_parent" query allows you to define a query that the parent document should match for a child document to be returned. In other words, the query returns the child documents where the parent document matches certain criteria.
+
+Let's see how it works. First, let's add the name of the query, "has_parent," and an empty object as the value:
+
+```json
+{
+  "query": {
+    "has_parent": {}
+  }
+}
+```
+
+Within this object, the first thing we need to do is specify the parent relation name using an option named "parent_type." Since we'll be adding conditions to departments, the relation name will be "department":
+
+```json
+{
+  "query": {
+    "has_parent": {
+      "parent_type": "department"
+    }
+  }
+}
+```
+
+Next, we need to specify the conditions that the parent document must satisfy. We do this within an option named "query," where we can specify any query that we have seen before. In this example, let's use a term query to match the development department by its name:
+
+```json
+{
+  "query": {
+    "has_parent": {
+      "parent_type": "department",
+      "query": {
+        "term": {
+          "name.keyword": "development"
+        }
+      }
+    }
+  }
+}
+```
+
+Now let's run the query and see what happens. Looking at the results, we can see that the matching documents belong to a parent with an ID of 1, which corresponds to the development department.
+
+You can add any complexity to the query if you want, such as using a bool query.
+
+So far, we have successfully retrieved the employees for the development department. However, the "has_parent" query can do more than that.
+
+One feature worth mentioning is the support for relevance scoring. By default, the query ignores the relevance score from the matching parent document. This means that how well the parent document matches has no effect on the relevance scores of the child documents. The default behavior is that a flat score of 1 is added to the score of each matching child document.
+
+To change this behavior and take the relevance score of the matching parent document into account, we can set the "score" option to true:
+
+```json
+{
+  "query": {
+    "has_parent": {
+      "parent_type": "department",
+      "query": {
+        "term": {
+          "name.keyword": "development"
+        }
+      },
+      "score": true
+    }
+  }
+}
+```
+
+Before running the query, let's look at the results from the previous query. Notice how all the matches have a relevance score of 1. This is the default behavior where a flat score of 1 is applied to the matching documents from the matching parent document.
+
+Now, let's run the modified query and observe the difference. Notice how the relevance scores have now increased by approximately a third. This increase is because the relevance score of the matching parent document is now taken into account, and it is reflected in the scores for the child documents. In other words, the relevance scores for the matches of the term query are used as the relevance scores for the child documents.
+
+It's important to note that this feature is most useful when the query is not searching for an exact value. In our example, we used an exact match, so the relevance scoring doesn't show its full potential. However, in scenarios where a query like the match query is used to search a text field, the relevance scores of the matching parent documents would likely differ significantly based on how well they match the query. By setting the "score" option to true, we ensure that the child documents belonging to the best matching parent document are scored the highest within the results.
+
+Although our query is not the best example to showcase this feature, I hope you understand the concept of applying the relevance score to child documents. If you need more control over how the child documents are sorted, you can use the "function_score" query, which we'll cover later in the course. However, it's not a very common practice.
+
+If you do need this behavior and want to explore it further, I have attached a link to an example that demonstrates how it can be done.
+
+That's it! As you can see, the "has_parent" query offers more flexibility than the "parent_id" query in cases where you don't know the ID of the parent document or when you're looking for more than a single parent document.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Querying Parent Documents Based on Child Document Criteria
+
+Now that you've learned how to retrieve child documents based on parent document criteria, let's explore the opposite scenario: retrieving parent documents based on criteria placed on their child documents. The query that enables us to do this is named "has_child."
+
+Let's see it in action. First, let's add an empty object for the "has_child" key:
+
+```json
+{
+  "query": {
+    "has_child": {}
+  }
+}
+```
+
+Within this object, the first thing we need to do is define the relation type of the child documents using the option named "type." In this example, the value will be "employee":
+
+```json
+{
+  "query": {
+    "has_child": {
+      "type": "employee"
+    }
+  }
+}
+```
+
+Next, let's add an empty query object. This is where we'll define the constraints for the child documents (i.e., the employees):
+
+```json
+{
+  "query": {
+    "has_child": {
+      "type": "employee",
+      "query": {}
+    }
+  }
+}
+```
+
+Now, let's define the constraints for the child documents. In this example, we want to match employees with an age greater than or equal to 50 and boost the relevance score if they are male. We can achieve this by using a bool query:
+
+```json
+{
+  "query": {
+    "has_child": {
+      "type": "employee",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "range": {
+                "age": {
+                  "gte": 50
+                }
+              }
+            },
+            {
+              "term": {
+                "gender.keyword": "male"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+Now, let's run the query and see the results. Looking at the results, we can see that the development department matches because it has an employee with an age of 52.
+
+If we change the age constraint to 60, we will no longer get a match for the department. Let's try that:
+
+```json
+{
+  "query": {
+    "has_child": {
+      "type": "employee",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "range": {
+                "age": {
+                  "gte": 60
+                }
+              }
+            },
+            {
+              "term": {
+                "gender.keyword": "male"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+This time, the department no longer matches the criteria.
+
+To recap, with the "has_child" query, we can match parent documents that contain child documents matching certain criteria. This criteria can be any query that you have learned so far, providing maximum flexibility.
+
+There are two more things worth mentioning about the "has_child" query. First, like the "has_parent" query, we can include the relevance scores of matching child documents. However, the option for this is named "score" with a "score_mode." There are five score modes available:
+
+- "min" and "max" modes take the lowest and highest score, respectively, of any matching child document and map it into the relevance score for the parent document.
+- "sum" and "avg" modes include all child documents' relevance scores and calculate the sum and average, respectively. The resulting number is then aggregated into the relevance score of the parent documents.
+- The "none" mode doesn't consider the relevance scores of child documents at all. This is the default behavior, so you can either set the value to "none" explicitly or simply leave it out.
+
+To demonstrate the score mode, let's add the "score" and "score_mode" options to our query. For example, let's set the mode to "sum":
+
+```json
+{
+  "query": {
+    "has_child": {
+      "type": "employee",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "range": {
+                "age": {
+                  "gte": 50
+                }
+              }
+            },
+            {
+              "term": {
+                "gender.keyword": "male"
+              }
+            }
+          ]
+        }
+      },
+      "score": true,
+      "score_mode": "sum"
+    }
+  }
+}
+```
+
+Now, let's run the query. Notice how the relevance score of the matching document is no longer just 1. The score has increased by approximately a third because the sum of the matching child documents' scores has been aggregated into the score. This approach is useful when you want to find parent documents that not only have child documents matching the criteria but also want to take into account how well the child documents match. The number of matching child documents may also affect the relevance score when using the "sum" scoring mode.
+
+The second point to mention is that the "has_child" query allows you to specify the minimum and maximum number of children that must match for the parent document to be included in the search results. This can be achieved by adding the "min_children" and "max_children" options. For example, let's set the minimum number of children to 2 and the maximum to 5:
+
+```json
+{
+  "query": {
+    "has_child": {
+      "type": "employee",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "range": {
+                "age": {
+                  "gte": 50
+                }
+              }
+            },
+            {
+              "term": {
+                "gender.keyword": "male"
+              }
+            }
+          ]
+        }
+      },
+      "min_children": 2,
+      "max_children": 5
+    }
+  }
+}
+```
+
+When we run the query, we no longer get any matches. That's because we set the minimum number of children to 2, but the department that matched before only has one child document that matches the specified criteria. You can specify either one or both of these options based on your requirements.
+
+Lastly, it's worth mentioning that the "has_child" query also supports sorting parent documents by child documents in the same way the "has_parent" query supports sorting. However, this requires scripting, and since we haven't covered scripting yet, I'll attach a link to an example for reference.
+
+That's it for this lecture! If you have any further questions or need additional clarification, feel free to ask!
+
+## Querying Multi-level Relations
+
+So far, we have been working with single-level relations, but it's also possible to have multi-level or nested relations. In the context of our example, we could have a company containing departments, which in turn have employees. To demonstrate this, I will create a new index named "company" that includes these relations, along with a "supplier" relation that belongs to a company. This will show an example of one relation containing multiple relation types.
+
+Let's start by creating the index and mapping. Most of the query is prepared in advance, so we just need to populate the relations object, which is the interesting part. First, we need to define the "company" relation type, which will contain both the "department" and "supplier" relation types. We do this by setting the value as an array of strings:
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "relations": {
+        "type": "join",
+        "relations": {
+          "company": ["department", "supplier"]
+        }
+      },
+      "department": {
+        "type": "join",
+        "relations": {
+          "company": "employee"
+        }
+      }
+    }
+  }
+}
+```
+
+In the example above, the "company" relation type is the parent relation for both the "department" and "supplier" relations. This means a company can have multiple departments and suppliers. Next, we define that a company can have multiple employees, which adds another level of relations. We do this by specifying the name of the existing relation type ("department") as the key within the "relations" object and defining the child relation type ("employee") in the same way as before.
+
+Now, let's index some documents to the new relation. We have prepared queries to add a company and a department, which are similar to the queries you've seen before. Let's run these queries to add the company and department.
+
+Now that we have indexed the documents in the context of multi-level relations, let's discuss how to search for them. The answer is quite simple: you do it in the same way as before, using the queries you've already learned. The "has_parent," "has_child," and "parent_id" queries work the same way in the context of multi-level relations because they operate on the relation between two types. The queries are not concerned with where the types are placed in the hierarchy; they work in the same way.
+
+However, if you want to restrict the matching documents on multiple relation levels, you may need to nest the queries. For example, let's say we want to retrieve companies that have at least one department containing an employee named "John Doe." Since the employee type is a grandchild of the company type, we need to nest the queries. Let's build that query:
+
+```json
+{
+  "query": {
+    "has_child": {
+      "type": "department",
+      "query": {
+        "has_child": {
+          "type": "employee",
+          "query": {
+            "term": {
+              "name.keyword": "John Doe"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+In the query above, we use the "has_child" query for the "department" type to find companies that have departments matching the given query (in this case, another "has_child" query). The nested "has_child" query finds employees with the name "John Doe." If the innermost query returns at least one matching document (i.e., employee), the department is included in the outermost query, causing the company to be included in the results.
+
+Let's run the query and check the results. As we can see, only the company that contains a department with an employee named "John Doe" is matched. If we change the name or use a bogus name, the company will no longer be matched.
+
+That's it! You now know how to define and query multi-level relations. You can use the queries you've learned in different combinations depending on the data you're working with and the data you want to retrieve.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Returning Inner Hits for Queries on Join Fields
+
+In an earlier section, you learned about using nested inner hits to see which nested objects caused a document to match. However, inner hits can also be used for join fields.
+
+Let's explore this concept in this lecture. The process is exactly the same as before, but the inner hits that are returned depend on the query used.
+
+Let's start by returning inner hits for the `has_child` query that you saw in a previous lecture. The query is already provided, so we just need to add the `inner_hits` option to it and run it.
+
+```json
+{
+  "query": {
+    "has_child": {
+      "type": "departments",
+      "query": {
+        "match_all": {}
+      },
+      "inner_hits": {}
+    }
+  }
+}
+```
+
+In the query above, we added the `inner_hits` option with an empty object as the value. This enables us to see the inner hits, which in this case, are the departments that have employees matching the defined query. We can now observe which employees caused each department to match the query.
+
+Let's run the query and see the results. For this particular query, an employee named Daniel Harris matched the specified query, resulting in the `has_child` query matching the "development" department.
+
+The same approach can be applied to the `has_parent` query. Let's see it in action:
+
+```json
+{
+  "query": {
+    "has_parent": {
+      "parent_type": "departments",
+      "query": {
+        "match_all": {}
+      },
+      "inner_hits": {}
+    }
+  }
+}
+```
+
+In the query above, we added the `inner_hits` option to the `has_parent` query. This query matches child documents that have a parent document matching the defined query. By including inner hits, we can now see which department caused each employee to match. In the results, we can determine which parent document influenced the inclusion of a given child document.
+
+Let's run the query and check the results. We can see which department caused each employee to be returned. In this case, it's unsurprisingly the "development" department. In a real-world scenario, the query may match multiple departments, but the concept remains the same.
+
+That's all there is to returning inner hits for queries that use join fields. It allows us to gain insights into the relationships between parent and child documents and understand how the matching process unfolds.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Using Terms Query with Terms Lookup Mechanism
+
+In this section, we will revisit a query you've seen before, the terms query. However, this time we will explore how it relates to join fields.
+
+The basic usage of the terms query is to look up documents that contain one or more specified terms. However, there are cases where including a large number of terms in the query definition becomes impractical. For instance, if you need to include 500 terms, the query would become cumbersome and unwieldy.
+
+To address this issue, the terms query supports something called a "terms lookup" mechanism. In Elasticsearch jargon, this mechanism allows fetching the terms from another document.
+
+Let's dive right in and examine some examples. I have prepared test data in advance and have already run the queries. You can find them in the GitHub repository if you're following along.
+
+The query involves creating two indices: "users" and "stories." Each user has a field named "following," which contains the IDs of the users they are following. Think of this as following someone on Instagram, Snapchat, Twitter, or Facebook.
+
+The goal is to display the stories for a given user, which corresponds to the stories published by the users they are following. To achieve this, we need to search for stories published by the user IDs that the user is following.
+
+Below is the first part of the term query:
+
+```json
+{
+  "query": {
+    "terms": {
+      "user": {
+        "index": "users",
+        "type": "_doc",
+        "id": "1",
+        "path": "following"
+      }
+    }
+  }
+}
+```
+
+In the query above, we specify the index and type as "users" and "_doc" respectively. We want to retrieve the user IDs from a specific document, identified by the ID "1." The "path" parameter indicates the field where the user IDs are stored, which is "following" in this case.
+
+Let's run the query and examine the results. We can see that two stories were matched, corresponding to the stories from users with IDs "2" and "3." This is as expected since the user with ID "1" follows these two users.
+
+Now, let's understand what happened behind the scenes. When the coordinating node received the search request, it determined that it needed to retrieve the terms to fulfill the terms query based on the options specified.
+
+Consequently, it sent a request to fetch the document with the specified ID and extracted the values from the "following" field. These values were then used in the terms query. Essentially, this process is equivalent to looking up the user by ID at the application level and using the retrieved values for the terms query.
+
+However, there are significant advantages to letting Elasticsearch handle this internally. If we were to perform the same operation at the application level, we would be making two queries to the Elasticsearch cluster instead of one. The time it takes for Elasticsearch to process a query is relatively short. The difference lies in the time taken to send queries over the network. Although Elasticsearch clusters are usually geographically close to the application server, there is still some network latency to consider. Additionally, the amount of data transferred over the network can impact performance. Suppose a user is following thousands of other users; transferring this data over the network would be inefficient, especially if the IDs are not simple integers but larger values like UUIDs.
+
+By leveraging Elasticsearch's internal mechanism, we achieve better performance. The performance gain depends on the data mapping and volume. It's important to note that the query's performance gradually degrades as the number of terms increases. Elasticsearch requires memory and processing power for each term. There is a limit of around 65,000 terms, which can be configured on a per-index basis. Be mindful of this limit if you anticipate queries that handle a large number of terms.
+
+In summary, this lecture demonstrated how to use the terms query with the terms lookup mechanism to retrieve terms from another document, potentially from another index, and use those terms within the same terms query. Additionally, we discussed how this approach improves performance compared to executing two separate queries.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+Certainly! Here's the revised text with detailed explanations:
+
+## Limitations and Performance of Join Fields
+
+In this section, we'll discuss a few limitations that apply to join fields and explore the performance aspects of joining queries.
+
+Let's start with the limitations:
+
+1. **Joining Documents in the Same Index:** As mentioned in a previous lecture, documents that we want to join must be stored within the same index. This means that we cannot have departments stored in one index and employees in another index and then attempt to join them together. This limitation exists for performance reasons, as joins would be significantly slower across different indexes.
+
+2. **Parent and Child Documents on the Same Shard:** Another limitation is that parent and child documents must be indexed on the same shard. This requirement was evident when we added documents, as we had to explicitly provide a "routing" parameter to ensure that the documents were assigned to the same shard. This constraint is essential for efficient join operations and maintaining the integrity of the relationships.
+
+3. **One Join Field per Index:** Each index can have only one join field. However, this limitation is not overly restrictive because we can map as many document relationships as needed within that join field. We can also add new relations to an existing join field without any issues.
+
+4. **One Parent per Document:** A document can have only one parent. For example, an employee can belong to only one department. However, a document can have multiple children, enabling a department to have multiple employees, as you have already seen in previous lectures.
+
+Now, let's shift our focus to the performance of joining queries:
+
+Joining queries in Elasticsearch are designed to be efficient and performant. By leveraging the underlying data structures and algorithms, Elasticsearch can execute join operations with high speed and scalability. Join fields are specifically optimized for these types of queries.
+
+To achieve optimal performance, Elasticsearch utilizes the concept of document routing. By assigning documents with the same parent-child relationship to the same shard, Elasticsearch ensures that join operations can be performed locally on a shard without the need for extensive inter-shard communication. This reduces latency and improves query response times.
+
+Additionally, Elasticsearch employs various caching mechanisms to enhance join query performance. The query cache and field data cache are examples of caching mechanisms that can be leveraged to speed up join queries by caching intermediate results and frequently accessed data.
+
+It's important to note that the performance of joining queries can be affected by factors such as the size and complexity of the data, the number of shards in the cluster, the available system resources, and the query workload. Properly configuring and optimizing these aspects can contribute to improved join query performance.
+
+In summary, join queries in Elasticsearch are designed to provide efficient and performant document relationship lookups. By adhering to the limitations of join fields and leveraging Elasticsearch's indexing and caching mechanisms, we can achieve fast and scalable join operations within the same index.
+
+If you have any further questions or need additional clarification, feel free to ask!
+
+## Performance and Considerations of Join Fields
+
+In this section, we'll discuss the performance implications of join fields and the considerations to keep in mind when using them.
+
+To summarize, join queries using the "join" field, specifically parent/child joins, are generally expensive in terms of performance and should be used with caution. It's important to understand the impact of join fields, especially when dealing with large amounts of data.
+
+Join fields introduce additional complexity and overhead, which can lead to slower query performance as the number of documents and relationships increase within an index. The "has_child" and "has_parent" queries, for example, experience degraded performance as the number of child documents pointing to unique parent documents or the number of parent documents themselves increases.
+
+Furthermore, using multi-level relations adds additional overhead to queries, and it is generally advised to avoid this unless necessary.
+
+However, there are scenarios where using a join field can still yield good performance. One such scenario is when there is a one-to-many relationship between two document types, and one type significantly outweighs the other in terms of document count. For instance, if you have recipes as parent documents and ingredients as child documents, and there are significantly more ingredients than recipes, using a join field can be a suitable option. Alternatively, you could also map the ingredients as nested objects, depending on your specific requirements.
+
+It's important to address the question of why we discussed join fields extensively, despite their performance implications and general discouragement. The reason is that there are still valid use cases for parent/child relationships, such as the example mentioned earlier. Additionally, if you have a limited number of documents and do not anticipate significant changes, the performance impact may be acceptable. Ultimately, as the creator of your Elasticsearch mapping, it is essential to provide you with the necessary tools and knowledge to make informed decisions based on your unique use case.
+
+Now, let's address the question of mapping document relationships properly. In Elasticsearch, unlike a relational database, it is generally recommended not to map document relationships explicitly. Elasticsearch excels at efficiently searching through vast amounts of data, and it is optimized for searching rather than traditional relationship mapping.
+
+Instead of trying to map document relationships, a common approach is to denormalize the data. For example, when mapping employees as documents, you can include their address as a regular field within the employee document or as a nested object, depending on your specific needs. The key is to optimize the data structure for efficient searching rather than focusing on explicit relationships.
+
+In summary, while join fields can have performance implications and should be used with caution, it is generally advised to denormalize your data and structure it in a way that maximizes search efficiency. Reserve the use of join fields for cases where denormalization is not suitable, and be aware of the limitations and consequences associated with using join fields.
+
+If you have any further questions or need additional clarification, feel free to ask!
