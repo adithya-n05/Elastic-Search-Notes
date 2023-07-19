@@ -3424,3 +3424,1161 @@ In situations where you are unsure whether the IDs exist within your index, you 
 Using the "ids" query is particularly useful when you are using the same identifiers for your Elasticsearch documents as in a relational database, for instance. The "ids" query makes it easy to retrieve specific documents because you already know their IDs.
 
 That's all for this lecture.
+
+## Prefix, Wildcard, and Regular Expression Queries
+
+In addition to exact matches, term level queries also allow for more flexible searching with prefix queries, wildcard queries, and regular expression queries. These queries provide additional options for pattern matching, but it's still important to use them with keyword fields for consistency. Let's explore each query type in detail.
+
+### Prefix Query
+
+The prefix query allows us to search for documents where the value of a field starts with a specific prefix. The syntax is straightforward. Here's an example of a prefix query that searches for documents where the value of the `name.keyword` field begins with "Past":
+
+```json
+{
+  "query": {
+    "prefix": {
+      "name.keyword": "Past"
+    }
+  }
+}
+```
+
+When we run this query, we can see that the matching documents include words like "Pastry" and "Pasta." It's important to note that the prefix must appear at the beginning of the term. Even if a word like "Pasta" appears within a term, it will not match because the prefix query only matches the beginning of the term.
+
+If we have a `tags` field that contains tags such as "Pasta," "Paste," and "Pastry," it might be more appropriate to query that field instead of relying on the prefix appearing at the beginning of the product name. This would yield more consistent results, as the word "Pasta" could appear anywhere within the product name. By querying the `tags` field, we can match more products. 
+
+### Wildcard Query
+
+The wildcard query allows for searching with wildcard characters. There are two wildcard characters available: the question mark `?` and the asterisk `*`. The question mark matches any single character, while the asterisk matches any character zero or more times. Placing a wildcard at the beginning of a pattern can have significant performance implications, so it's generally advised to avoid doing so unless necessary.
+
+Here are a few examples of wildcard patterns and their matching terms:
+
+- "Pa?try" matches "Pastry" and "Pasta"
+- "Bee*" matches "Beets," "Beer," and "Beef"
+
+When using wildcard queries, it's important to note that they operate on terms, not on individual words within a field. The values in the field are stored as single terms, so even if a field value contains multiple words, it will be treated as a single term. 
+
+### Regular Expression Query
+
+The regular expression query, named `regexp`, allows for more complex pattern matching using regular expressions. Regular expressions are powerful patterns used to match strings. While the wildcard query also uses patterns, the `regexp` query enables us to define more complex patterns.
+
+Here's an example of a regular expression pattern:
+
+```regex
+^Bee[r|f]+$
+```
+
+This pattern matches any string that starts with "Bee" followed by one or more occurrences of the letters "r" or "f." Parentheses form a group, and the pipe symbol serves as an OR operator. We can also make the pattern more dynamic by including a character set, allowing any letter to follow the "Bee" prefix.
+
+It's important to remember that a regular expression pattern must match the entire term for a document to be considered a match. For example, the pattern `^Bee[r|t]$` matches terms like "Beer" and "Beet," but not "Beetroot" because the pattern only matches part of the term.
+
+When using regular expressions, Elasticsearch relies on Apache Lucene's regular expression engine. While the syntax is similar to other regular expression engines, there are a few differences. Anchor operators, such as the caret `^` and dollar `$` symbols, are not supported. Instead, the pattern must match the entire string.
+
+Here's an example of a `regexp` query using the previously mentioned pattern:
+
+```json
+{
+  "query": {
+    "regexp": {
+      "tags.keyword": "^Bee[r|f]+"
+    }
+  }
+}
+```
+
+When running this query, it matches the "Beef" and "Beer" tags.
+
+By default, term level queries are case sensitive. However, all three queries—prefix, wildcard, and regexp—support a `case_insensitive` parameter that can be used to perform case-insensitive searches. Here are examples of each query with the `case_insensitive` parameter set to `true`:
+
+- Prefix query:
+  ```json
+  {
+    "query": {
+      "prefix": {
+        "name.keyword": {
+          "value": "Past",
+          "case_insensitive": true
+        }
+      }
+    }
+  }
+  ```
+
+- Wildcard query:
+  ```json
+  {
+    "query": {
+      "wildcard": {
+        "name.keyword": {
+          "value": "Pa*",
+          "case_insensitive": true
+        }
+      }
+    }
+  }
+  ```
+
+- Regexp query:
+    ```json
+  {
+    "query": {
+      "regexp": {
+        "name.keyword": {
+          "value": "^P[a-z]+",
+          "case_insensitive": true
+        }
+      }
+    }
+  }
+    ```
+
+That concludes this lecture. In the next one, we will explore full-text queries.
+
+Certainly! Here's the revised text with detailed exemplar code:
+
+## Searching for Documents Based on Field Existence
+
+In Elasticsearch, we can search for documents based on whether or not they contain a value for a specific field using the `exists` query. This query is similar to the `IS NOT NULL` condition in relational databases. To use the `exists` query, we simply specify the name of the field.
+
+Here's an example of an `exists` query:
+
+```json
+{
+  "query": {
+    "exists": {
+      "field": "tags.keyword"
+    }
+  }
+}
+```
+
+When running this query, it's surprising to see that it only matches 554 documents, even though all the documents contain a value for the `tags` field. The reason is that the `exists` query matches documents that contain an indexed value for a field. If we supply an empty value (NULL or an empty array) for a field during indexing, the value is stored in the `_source` object but not indexed. Only non-empty values are indexed.
+
+In our dataset, some documents have an empty array as the value for the `tags` field. These documents do not have any values indexed for the field. Let's take a closer look at an example:
+
+- Document #1: Contains a value for both the `name` and `tags` fields. The values are analyzed and indexed into the inverted index.
+- Document #2: Also contains a value for both the `name` and `tags` fields. However, the `tags` field has an empty array as its value. Since an empty array is treated as if no value was provided, nothing is added to the field's inverted index.
+
+If we run an `exists` query on the `tags` field, only document #1 will match.
+
+Besides empty values, there are a few other reasons why a document might not have an indexed value for a field:
+
+- If a `null_value` parameter is specified in the field's mapping and a value of `NULL` is provided, the value will be indexed. This allows the document to match an `exists` query.
+- If no value is provided for a field during indexing, the field will be missing from the indexing request, and no value will be indexed.
+- The `index` mapping parameter can be set to `false` in the field's mapping, indicating that the field's values should not be indexed. This is commonly used for numeric fields that are used for aggregations rather than filtering.
+- The `ignore_above` parameter can be used to specify a maximum length for keyword fields. If a value exceeds this length, it is ignored for indexing. The default value is 256 for keyword fields with dynamic mapping. However, for text fields, the value will still be indexed even if it exceeds the `ignore_above` threshold.
+- The `ignore_malformed` parameter can be set to `true` in the field's mapping. If a value of an incompatible data type is provided, such as indexing a string into a numeric field, the value will be ignored (not indexed). If the parameter is not specified, the indexing request would fail.
+
+To search for documents that do not contain an indexed value for a field, there is no dedicated query for that purpose. Instead, we can use the `bool` query and combine it with the `must_not` parameter. Here's an example:
+
+```json
+{
+  "query": {
+    "bool": {
+      "must_not": {
+        "exists": {
+          "field": "tags.keyword"
+        }
+      }
+    }
+  }
+}
+```
+
+In this query, the `exists` query is added to the `must_not` parameter of the `bool` query. This means that a document will only match if it does not have a value indexed for the `tags.keyword` field.
+
+When running this query, we can see that it matches 446 documents, while the previous query matched 554 documents. If we scroll through the results, we will see that the documents all contain an empty array for the `tags` field, indicating that no value was indexed.
+
+That concludes this lecture. In the next one, we will explore the `match` query for full-text searching.
+
+## Full Text Queries
+
+Full text queries are used to search through unstructured text data, such as blog posts, news articles, comments, etc. These queries are designed to find documents that contain specific words or phrases within their content. Unlike term level queries that are used for exact matches on structured data, full text queries are used for searching unstructured text data.
+
+Let's consider an example where we have an index called "posts" that contains various blog posts. Here's an example document structure:
+
+```json
+{
+  "title": "Introduction to Elasticsearch",
+  "body": "Elasticsearch is a distributed, scalable search and analytics engine."
+}
+```
+
+In this example, the "title" and "body" fields are of the "text" data type. If we search for the word "Elasticsearch," this document would match because the word appears in both the title and body fields.
+
+The main difference between full text queries and term level queries is that the query itself is analyzed. When processing the query, Elasticsearch inspects the field mapping for the specified field. If an analyzer is configured for the field, Elasticsearch uses that analyzer. Otherwise, it defaults to the standard analyzer. The query is then run through the analyzer, applying the same analysis process used during document indexing.
+
+This analysis step is crucial to ensure that the query and indexed values are compared correctly. For example, if the term "Elasticsearch" is indexed as lowercase, searching for "ELASTICSEARCH" in uppercase would not match anything. By analyzing the query using the same analyzer as the indexed values, both are transformed consistently.
+
+Full text queries use the analyzed term to perform a lookup within the inverted index. If a match is found, the corresponding documents are considered as matches for the query and returned in the results.
+
+The fact that full text queries are analyzed is the primary difference between full text queries and term level queries. Term level queries are not analyzed and are used for exact matching. In contrast, full text queries are analyzed, making them suitable for searching unstructured text data. Therefore, full text queries should not be used with fields of the "keyword" data type because keyword fields store non-analyzed values, while full text queries require analyzed values.
+
+To summarize, full text queries are used to search through unstructured text values, such as blog posts, emails, news articles, etc. They are not used for exact matching but rather for finding documents where specific terms appear. The analysis process ensures consistent comparison between the query and indexed values. Remember that full text queries should not be used with keyword fields that store non-analyzed values.
+
+Now that we understand the basics of full text queries, let's write an example query.
+
+## The Match Query
+
+The match query is one of the most commonly used full text queries in Elasticsearch. It returns documents that contain one or more specified terms. The inner workings of the match query follow the same principles we discussed in the previous lecture. The query is analyzed, and the resulting terms are looked up in the field's inverted index.
+
+Let's write an example query using the match query to search the "name" field for the word "pasta."
+
+```json
+{
+  "query": {
+    "match": {
+      "name": "pasta"
+    }
+  }
+}
+```
+
+In this example, the query matches 12 products that contain the word "pasta" within their names. It's important to note that the word "pasta" can appear anywhere within the field values since we are no longer searching for exact matches.
+
+To demonstrate that the value is analyzed, let's change the query to uppercase letters.
+
+```json
+{
+  "query": {
+    "match": {
+      "name": "PASTA"
+    }
+  }
+}
+```
+
+Surprisingly, the results remain the same. Internally, the term "PASTA" is run through the analyzer, which includes the lowercase token filter. Both versions of the query search for "pasta" in lowercase letters, matching the way the term is stored in the inverted index.
+
+So far, our queries have consisted of single words. Let's now explore how the match query handles multiple words, which is common in search scenarios. Instead of searching for just "pasta," let's search for "chicken" as well.
+
+Before running this query, let's understand how it works. The value is analyzed, resulting in two terms: "pasta" and "chicken." Both terms are looked up in the inverted index to find documents that contain either or both of them.
+
+```json
+{
+  "query": {
+    "match": {
+      "name": "pasta chicken"
+    }
+  }
+}
+```
+
+When we run the query, the results will include products that contain both terms, as well as those containing only one of them.
+
+By default, the match query has an "OR" operator, which means a document matches if either or both terms appear within the field's value. If we explicitly set the operator parameter to "AND," both terms are required for a document to match.
+
+Let's modify our previous query to use the "AND" operator:
+
+```json
+{
+  "query": {
+    "match": {
+      "name": {
+        "query": "pasta chicken",
+        "operator": "AND"
+      }
+    }
+  }
+}
+```
+
+In this example, we restructured the query to include an object as the value for the "name" field. We added the "query" parameter with the desired value and the "operator" parameter set to "AND."
+
+When we run the query, only documents containing both terms within the "name" field will be returned.
+
+The match query is a fundamental and powerful query in Elasticsearch, and it's likely to be used for most full text searches. It also has advanced parameters that provide even greater flexibility, which we will cover in a later lecture.
+
+One important note is that the match query can also be used when searching for numbers, dates, and boolean values. It offers forgiveness in terms of the search input, making it suitable for search fields. However, if the search is not based on user input, it's preferable to use term level queries for these data types.
+
+That concludes this lecture. I'll see you in the next one!
+
+## Relevance Scoring in Full Text Queries
+
+In the previous lecture, I ran a query that searched for both "pasta" and "chicken." You can see the query and its results on your screen. You might have noticed that the documents at the top of the results contain both of the terms. This is because there is an important concept we haven't discussed yet: relevance scoring.
+
+Apart from the match query, we have only covered term level queries thus far. You may have noticed that the documents matching these queries all had a value of 1.0 for the `_score` field. I didn't mention it earlier because relevance scoring is generally not applicable to term level queries. These queries evaluate a condition that is either true or false, resulting in a document either matching or not matching the query. There are exceptions, but this is generally the case.
+
+However, with full text queries, we are no longer performing exact matching. It's not just about whether or not a document matches; we also care about how well it matches. Consider the search results on Google, for instance. We expect the best results to be at the top, not on page 201.
+
+The same concept applies to full text queries in Elasticsearch. Search results are sorted based on the relevance scores, with the matches that have the highest values for the `_score` field appearing at the top. In other words, the results are sorted in descending order based on the `_score` meta field.
+
+This explains why documents containing both terms from the search query appeared first in the results. They were scored higher because they matched the query better than the documents that contained only one of the terms.
+
+It's important to note that the specific numbers you see for the `_score` field may vary. Relevance scoring is a complex process that considers numerous factors, so exact score values may differ. We will explore how Elasticsearch calculates these scores in more detail later in the course.
+
+For now, it's sufficient to understand how relevance scoring works at a high level. Full text queries are analyzed, and the resulting terms are looked up in the inverted index for the field. Elasticsearch then calculates relevance scores for each matching document. Once the scores are calculated, the documents are sorted based on their scores to form the query results.
+
+This is just a high-level overview of relevance scoring. We will delve deeper into the topic in subsequent lectures.
+
+That concludes the explanation of relevance scoring for now. Let's continue with the course.
+
+## Multi-match Query for Searching Multiple Fields
+
+In the previous lecture, we saw the match query in action, which was great for searching a single field. But what if we want to search multiple fields? One way to accomplish this is by using a query named multi_match, which we'll explore in this lecture.
+
+The syntax for the multi_match query is straightforward. Let me type out a query that searches both the name and tags fields for the term "vegetable."
+
+```json
+{
+  "query": {
+    "multi_match": {
+      "query": "vegetable",
+      "fields": ["name", "tags"]
+    }
+  }
+}
+```
+
+When we run this query, we can see that several documents match the query. If we examine the first document, we can see that the word "vegetable" appears within the name field. Similarly, for the second document, it appears within the tags field. Therefore, we have successfully searched both fields simultaneously. It's important to note that a document matches if it contains the term in at least one of the specified fields.
+
+That was easy, right? However, don't be fooled because the multi_match query is actually a very advanced query. Let's take a closer look at what else it has to offer.
+
+One useful feature is the ability to adjust the relevance scoring per field to control the importance of fields in the search. For example, if we want to boost documents where the term appears in the name field, we can apply a relevance boost to that field. To do this, we specify a caret symbol after the field name, followed by a number. For instance, to double the relevance score for documents where the term appears in the name field, the query would look like this:
+
+```json
+{
+  "query": {
+    "multi_match": {
+      "query": "vegetable",
+      "fields": ["name^2", "tags"]
+    }
+  }
+}
+```
+
+In this case, the relevance scores for documents that match the term in the name field will be multiplied by two. Running the query, we can see that the relevance score for the first document has indeed doubled.
+
+Now let's take a closer look at how the multi_match query works internally. Elasticsearch actually rewrites the query to construct separate match queries for each specified field. If at least one of these match queries matches for a document, then that document will be part of the results. This is a simplified explanation, but it captures the essence of the process.
+
+Regarding relevance scoring, the multi_match query has a `type` parameter that can be used to adjust how relevance scores are calculated. However, for now, let's focus on the default behavior. By default, the relevance score of the best matching field is used for the document. Suppose we search the name and description fields for two terms, "vegetable" and "broth." The query would be translated into two match queries internally. In the example document, we can see that the name field contains both terms, while the description field only contains the term "vegetable." The Elasticsearch relevance algorithm assigns a higher score to the name field. This behavior applies to the other documents as well.
+
+Please note that the relevance scores I assigned are arbitrary and should not be considered as real-world values.
+
+By default, the multi_match query evaluates the scores for each field in a document and selects the highest score. In this case, the highest score belongs to the name field. These relevance scores become the `_score` values within the search results, indicating the relevance of the documents.
+
+Now, I want to show you a way to adjust this default behavior using something called a tie breaker. By default, multiple fields are searched, but only the highest-scoring field is considered for relevance scoring. However, we might want to "reward" documents where multiple fields match. By defining a tie breaker, we can incorporate all matching fields into the relevance scores for the documents. Let's look at an example using the same query as before, but with the tie_breaker parameter:
+
+```json
+{
+  "query": {
+    "multi_match": {
+      "query": "vegetable",
+      "fields": ["name", "description"],
+      "tie_breaker": 0.3
+    }
+  }
+}
+```
+
+In the example document, I added relevance scores for each of the two fields. By default, the highest score (from the name field) would be selected, resulting in a score of 12.69. However, with the tie breaker, the behavior is as follows: the highest score is still selected (from the name field), giving a score of 12.69. For every other matching field, Elasticsearch takes those relevance scores and multiplies them by the tie breaker value (0.3 in this case). For the description field, the score of 8.51 would be multiplied by 0.3, resulting in 2.55. This number is then added to the relevance score of the best matching field. The resulting score becomes the relevance score for the document.
+
+In a scenario where we search four fields and three of them match, each document receives a relevance boost for each additional field that matches besides the best matching field. This accounts for the relevance of terms appearing in fields with lower scores, indicating some degree of relevance to consider. Depending on your use case, this behavior may or may not be desired, and you can adjust the tie breaker value accordingly.
+
+That covers the basics of the multi_match query. Be sure to consult the Elasticsearch documentation if you're curious about the more advanced ways to adjust relevance scoring. I'll see you in the next lecture!
+
+## Phrase Searches with the match_phrase Query
+
+Earlier, we covered the match query, which matches a value if at least one of the specified terms appears anywhere within the field value. The terms can appear in any order. Let's take a look at an example:
+
+```json
+{
+  "query": {
+    "match": {
+      "description": "Fanta Zero"
+    }
+  }
+}
+```
+
+In this example, searching for both "Fanta Zero" and "Zero Fanta" will yield the same results. The terms do not have to be adjacent. For phrase searches, however, the order of the words matters, unlike the match query.
+
+Phrase searches are performed using the match_phrase query in Elasticsearch. The match_phrase query is analyzed in the same way as the match query, usually with the standard analyzer. Let's go through some example documents and evaluate whether or not they are matched by a phrase query.
+
+While the first document contains all the terms we are searching for, it's not matched by the query. This is because the terms are not adjacent; there are two words in-between them. For a phrase to match, the terms must appear in the correct order and with no other terms in-between.
+
+The next document is not matched either because one of the terms is missing, and the order of the terms is different. In phrase searches, it is a requirement that all terms are present. Additionally, there are two other terms in-between the matching ones.
+
+The third document also doesn't match because the terms appear, but not in the correct order. Note that the values shown here would also be analyzed and stored within an inverted index. Therefore, parentheses or any other symbols make no difference in matching; only the order of the terms matters.
+
+The fourth and fifth documents do match because the phrases appear within the field values. All terms are adjacent and in the correct order, matching the phrase we are searching for.
+
+So, how do these phrase searches work? Elasticsearch needs to efficiently find the documents where the terms appear in a specific order, keeping track of term positions within field values. Elasticsearch stores additional information in the inverted indices to accomplish this. When a string is indexed into a text field, the analyzer records the position of each term. These positions are then stored within the field's inverted index.
+
+During a phrase query, Elasticsearch uses these positions to check if the terms appear in the correct order. It performs a lookup within the inverted index to identify the documents containing the terms and then verifies if the terms appear as a phrase, meaning next to each other in the correct order. This is determined by checking the positions and ensuring they are in increments of one.
+
+To illustrate this, let's consider the following query:
+
+```json
+{
+  "query": {
+    "match_phrase": {
+      "description": "guide to elasticsearch"
+    }
+  }
+}
+```
+
+Based on the analyzed query, Elasticsearch performs a lookup within the inverted index for the description field to identify the documents containing the terms. In this example, both documents contain all three terms. Based on the term positions, Elasticsearch determines whether the terms appear as a phrase. If the positions of the term "guide" were three and five, respectively (one greater than those of the "elasticsearch" term), the documents would match the phrase query.
+
+Here's an example of a phrase query that does match a document:
+
+```json
+{
+  "query": {
+    "match_phrase": {
+      "description": "guide elasticsearch"
+    }
+  }
+}
+```
+
+In this case, the positions of the terms "guide" and "elasticsearch" satisfy the phrase condition, and the document matches the query.
+
+Now that you've seen the concept of phrase queries, let's run some queries to further illustrate their usage. We have four simple phrase queries prepared. Let's quickly run them one by one.
+
+The first query searches for "mango juice" but doesn't match anything. The second query searches for the phrase "juice mango," which matches one document. The terms are the same, but they are in the correct order as they appear within the document. Notice how the hyphen doesn't affect the matching because it was dropped during the analysis process. Similarly, adding symbols within queries won't have any effect on matching.
+
+Lastly, let's search the description field for a phrase consisting of three words. This query matches one document as well. The phrase appears in the middle of the value for the description field.
+
+These were simple examples to demonstrate phrase queries in action. Now you have a solid understanding of how to use the match_phrase query and how it works.
+
+That's all for this lecture!
+
+## Compound Queries: Wrapping Leaf Queries
+
+We have just covered both term level queries and full text queries. However, I haven't mentioned that all of these queries are referred to as leaf queries. A leaf query is a query that searches for a value within one or more fields and can be used by itself. For example, the term query and the full text queries we covered fall into this category.
+
+On the other hand, a compound query is a query that wraps other queries to combine them logically. Compound queries orchestrate other queries to produce a result. Let's take a simple example to understand the difference. Suppose we want to search for products that contain the "Alcohol" tag and are almost sold out. This would involve two leaf queries: a term query and a range query.
+
+In Elasticsearch, we can only define a single query at the top level of our request. This means that these two leaf queries need to be wrapped within a compound query. Compound queries can contain one or more leaf queries or other compound queries.
+
+To combine multiple queries, we need to wrap them within a compound query. Advanced queries can be nested further, such as nesting a compound query within another compound query. This allows us to write powerful and complex queries.
+
+Here's a quick example to illustrate this concept. Let's say we want to find products with the "Alcohol" tag that are either sold out or inactive. In SQL, this could be represented as:
+
+```sql
+SELECT * FROM products
+WHERE tag = 'Alcohol' AND (status = 'Sold Out' OR status = 'Inactive')
+```
+
+In Elasticsearch, this query would consist of three leaf queries:
+
+1. Term query for the "Alcohol" tag.
+2. Term query for the "Sold Out" status.
+3. Term query for the "Inactive" status.
+
+To construct the boolean logic, we would wrap these leaf queries within compound queries. The resulting Elasticsearch query would look something like this:
+
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "tag": "Alcohol"
+          }
+        }
+      ],
+      "should": [
+        {
+          "term": {
+            "status": "Sold Out"
+          }
+        },
+        {
+          "term": {
+            "status": "Inactive"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+As you can see, the compound query in this example is a boolean query with the `must` and `should` clauses. It contains both leaf queries and another compound query. This enables us to write powerful and complex queries by combining multiple conditions.
+
+Now that you understand the concept of compound queries and how they wrap leaf queries, let's explore some compound queries in more detail.
+
+That's all for this lecture!
+
+## The Bool Query: Combining Multiple Conditions
+
+Now that you understand what compound queries are, let's take a look at one of the most commonly used compound queries: the bool query. "Bool" is short for "boolean," and as the name suggests, this query is used in situations where you have more than one condition. Each condition is expressed as a clause, which is just another word for a query in this context. The bool query contains other queries, which makes it a compound query.
+
+These clauses are defined within occurrence types, which are used to define boolean logic. Let's start writing some queries to see how the bool query works.
+
+One of the occurrence types we can use is "must," which contains zero or more query clauses. Within this array, we can add queries that must match. These can be any queries, including the ones we have seen so far. Let's start with a simple example: matching documents that contain the "Alcohol" tag. We can use the term query for this purpose.
+
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "tag": "Alcohol"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Running this query will return documents that have the "Alcohol" tag.
+
+The result of this query is equivalent to the following SQL query:
+
+```sql
+SELECT * FROM products
+WHERE tag = 'Alcohol';
+```
+
+Next, let's move on to the "must_not" occurrence type. As the name suggests, this is where we can add query clauses that must not match. Any document that matches any of these clauses will not be included in the results. Let's expand our query by excluding documents with the "Wine" tag using a simple term query.
+
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "tag": "Alcohol"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "term": {
+            "tag": "Wine"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Running this query will match documents with the "Alcohol" tag that do not have the "Wine" tag. 
+
+The result of this query is equivalent to the following SQL query:
+
+```sql
+SELECT * FROM products
+WHERE tag = 'Alcohol' AND tag != 'Wine';
+```
+
+With the bool query, we can already build powerful queries. However, there is more to explore. Let's move on to the next occurrence type: "should." Clauses within this occurrence type are not required to match, but if they do, they will boost the relevance scores of the matching documents.
+
+Let's expand our query further. Suppose we are interested in beer specifically and want to score beers higher than other kinds of products without excluding them. We can achieve this by adding a query clause that matches beers. Since there is a tag for beers, we can use a term query for that as well.
+
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "tag": "Alcohol"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "term": {
+            "tag": "Wine"
+          }
+        }
+      ],
+      "should": [
+        {
+          "term": {
+            "tag": "Beer"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Running this query will prioritize beers in the search results. The documents that match the "Beer" tag will receive a relevance boost.
+
+We can further improve this query by boosting the relevance scores of documents where the term "beer" appears in other fields, such as the name or description fields. We can achieve this by adding match queries for the name and description fields. Since we are now searching through unstructured text, we can use full-text queries.
+
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "tag": "Alcohol"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "term": {
+            "tag": "Wine"
+          }
+        }
+      ],
+      "should": [
+        {
+          "term": {
+            "tag": "Beer"
+          }
+        },
+        {
+          "match": {
+            "name": "beer"
+          }
+        },
+        {
+          "match": {
+            "description": "beer"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Running this query will prioritize documents that have the term "beer" in their name or description fields, in addition to matching the "Alcohol" tag and excluding the "Wine" tag.
+
+Now that we have covered all the occurrence types, let's recap:
+
+- The "must" clauses are required to match and influence the relevance scores of documents. Place criteria that documents must fulfill here if you want them to contribute to the relevance scores of matching documents.
+- The "must_not" clauses are used to filter out documents. The query clauses within this occurrence type must not match. They don't affect relevance scores and can be cached by Elasticsearch.
+- Each matching "should" clause boosts the relevance scores of documents. This is useful for queries that are not required to match. The more "should" clauses match, the higher the relevance score. You can configure the minimum number of clauses required to match using the "minimum_should_match" parameter.
+- The "filter" clauses must match and are similar to "must" clauses. However, "filter" clauses ignore the relevance scores of matching documents. Placing query clauses within the "filter" occurrence type can improve query performance as Elasticsearch doesn't need to calculate relevance scores or order the results. The results can be cached and used for subsequent executions of the query.
+
+Remember that compound queries can be nested, and you can combine them in various ways to construct powerful and flexible queries.
+
+Now, let's explore some example queries to further illustrate these concepts:
+
+**Example 1: Find products with 100 or fewer items in stock, tagged with "Beer" or containing "Beer" in their names.**
+
+```json
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "in_stock": {
+              "lte": 100
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "term": {
+            "tag": "Beer"
+          }
+        },
+        {
+          "match": {
+            "name": "beer"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Example 2: Find products tagged with "Beer" that have 100 or fewer items in stock. Additionally, the term "Beer" should appear in the product name or description.**
+
+```json
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "tag": "Beer"
+          }
+        },
+        {
+          "range": {
+            "in_stock": {
+              "lte": 100
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "match": {
+            "name": "Beer"
+          }
+        },
+        {
+          "match": {
+            "description": "Beer"
+
+
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Feel free to run these example queries and experiment with different combinations to further understand the bool query and compound queries in Elasticsearch.
+
+That's all for this lecture! If you have any questions, feel free to ask.
+
+## Query Execution Contexts: Query and Filter
+
+In this lecture, we'll discuss query execution contexts. You actually saw an example of it in the previous lecture, but let's dive deeper into the concept now.
+
+In Elasticsearch, there are two contexts in which queries can be executed. The first one is the query context. This is what you have been using so far, with one exception that we'll discuss shortly.
+
+The query context determines whether or not a document matches the query clause. Additionally, it asks the question: "How well does this document match?" Relevance scoring is involved in determining the answer to this question. Relevance scores are floating-point numbers that represent the relevance of a document to the query. These scores are available in the `_score` metadata field for each matching document. Higher relevance scores indicate a better match, meaning the document is more relevant to the query. The results returned by the Search API are sorted by relevance scores in descending order, with the most relevant documents appearing first.
+
+So when is a query clause executed in the query context? To answer that question, let's look at a simple search query:
+
+```json
+{
+  "query": {
+    "match": {
+      "title": "elasticsearch"
+    }
+  }
+}
+```
+
+The key named "query" at the root of the request body indicates that the query clauses nested within this key are executed in the query context, meaning that documents are rated based on relevance.
+
+Now, let's talk about the second execution context, which is the filter context. Query clauses that are run in the filter context answer the question: "Does this document match?" In the filter context, it's a simple yes or no question. Either a document matches the criteria or it doesn't. No relevance scores are calculated in the filter context, so Elasticsearch doesn't evaluate the quality of the match. The filter context is primarily used for filtering data, especially structured data such as dates, numbers, and the keyword data type. Relevance scoring is unnecessary or irrelevant for such filtering. The benefit of the filter context is that Elasticsearch doesn't need to spend resources on calculating relevance scores, and the results can be cached.
+
+The concept of query execution contexts might sound familiar because we discussed it in the previous lecture in the context of the bool query. Consider the following query:
+
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": "elasticsearch"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "range": {
+            "timestamp": {
+              "gte": "2022-01-01"
+            }
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "term": {
+            "status": "archived"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+The bool query runs in the query context, as indicated by the "query" key. However, query clauses within both the "filter" and "must_not" occurrence types run in the filter context. This means that these clauses don't affect relevance scoring and can be cached.
+
+In situations where you don't require relevance scoring, it's a good optimization to move query clauses from the "must" occurrence type to the "filter" occurrence type. By doing so, you can change the execution context to the filter context.
+
+Note that only a few queries support changing the execution context to the filter context, and they generally have a parameter named "filter" to specify it. The bool query is a common example where you can utilize the filter context. The same concept can be applied within aggregations, but we'll cover that later. 
+
+To summarize, by default, queries are executed in the query context unless specified otherwise. Relevance scores are calculated within the query context, answering the question "How well does this document match?" For some queries, it's possible to change the execution context to the filter context. In the filter context, no relevance scores are calculated, and the question is simply "Does this document match?" Not calculating relevance scores improves performance, and query clauses within the filter context can be cached for even better performance. When filtering documents, consider whether you need relevance scoring or simply want to filter out documents that don't match the criteria. If relevance scoring is unnecessary, use the filter context whenever possible. This optimization is particularly important for large indices.
+
+These are the two execution contexts in Elasticsearch, typically used within the bool query and the filter aggregation, which we will cover later.
+
+If you have any questions or need further clarification, feel free to ask!
+
+## Boosting Query: Decreasing Relevance Scores
+
+In this lecture, we'll explore the boosting query, which allows us to decrease the relevance scores of documents. Consider the following query:
+
+```json
+{
+  "query": {
+    "boosting": {
+      "positive": {
+        "match": {
+          "name": "juice"
+        }
+      },
+      "negative": {
+        "match": {
+          "name": "apple"
+        }
+      },
+      "negative_boost": 0.5
+    }
+  },
+  "size": 20
+}
+```
+
+This query searches for products that contain the term "juice" within their names. We want to decrease the relevance scores of documents that also contain the term "apple." The boosting query consists of two parts: a "positive" and a "negative" query clause. The "positive" query clause, defined within the "positive" parameter, is required to match, similar to the "must" occurrence type in the bool query. We add the same query clause that matches all juice products.
+
+Within the "negative" parameter, we specify a query clause that reduces the relevance scores of matching documents. In this case, since we don't like apple juice, we search for the term "apple" within the negative query clause. Since the negative query is run in the context of the results from the positive query, we only need to search for "apple" here.
+
+So, the boosting query matches any documents that match the positive query clause. Documents that also match the negative query clause have their relevance scores reduced. This is the opposite of the "should" occurrence type in the bool query, where matching documents receive a relevance boost.
+
+Now, let's add the "negative_boost" parameter. This parameter accepts a floating-point number between 0 and 1.0. It acts as a modifier for documents that match the negative query clause. When a document matches the boosting query, there are two scenarios:
+
+1. If a document only matches the positive query clause, its relevance score remains intact. The relevance score is the one calculated by the match query defined within the positive parameter. These scores are the unmodified scores.
+
+2. If a document matches both the positive and negative query clauses, its relevance score is multiplied by the negative_boost value. In this example, the negative_boost value is 0.5, so the relevance scores of these documents are halved.
+
+By running this query, we no longer see the "Apple Juice" product at the top of the results. If we scroll to the bottom, we can find all the apple juice products. These documents matched the negative query clause and had their relevance scores reduced.
+
+The boosting query allows us to decrease the relevance of some documents, which cannot be achieved with the bool query. In this example, we searched for juice products and decreased the relevance of apple juice.
+
+It's important to note that the positive query clause is required, so we need to add something to it. In cases where we don't want to narrow down or filter the documents in the positive parameter, we can simply add a match_all query.
+
+The examples shown thus far have been relatively simple. However, in real-world scenarios, queries can become more complex. Let's look at a couple of more advanced examples for reference. These examples are fictional and not based on our test data.
+
+Suppose we have an imaginary recipe dataset. We want to boost recipes with pasta and decrease the relevance of recipes with bacon. Both preferences include all products, so they can be considered preferences rather than requirements. Here are two simple queries:
+
+1. Boost recipes with pasta:
+
+```json
+{
+  "query": {
+    "boosting": {
+      "positive": {
+        "match": {
+          "ingredients": "pasta"
+        }
+      },
+      "negative": {
+        "match": {
+          "ingredients": "bacon"
+        }
+      },
+      "negative_boost": 0.5
+    }
+  }
+}
+```
+
+2. Reduce the relevance of recipes with bacon:
+
+```json
+{
+  "query": {
+    "boosting": {
+      "positive": {
+        "match_all": {}
+      },
+      "negative": {
+        "match": {
+          "ingredients": "bacon"
+        }
+      },
+      "negative_boost": 0.5
+    }
+  }
+}
+```
+
+But what if we want to apply both preferences simultaneously? Since pasta is a preference rather than a requirement, we need to make it optional. We can achieve this by combining the boosting query with the bool query. Although we can only add a single query clause within the bool query, there's nothing stopping us from adding a compound query that contains multiple query clauses, i.e., leaf queries. Here's an example:
+
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "boosting": {
+            "positive": {
+              "term
+
+": {
+                "ingredients": "pasta"
+              }
+            },
+            "negative": {
+              "match": {
+                "ingredients": "bacon"
+              }
+            },
+            "negative_boost": 0.5
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+By combining the boosting query with the bool query, pasta is no longer required, but recipes that contain it receive a higher relevance score. The boosting query reduces the relevance score of recipes with bacon, regardless of whether or not they also contain pasta. Thus, we have constructed a query with both "positive" and "negative" preferences.
+
+As you can see, the boosting query is quite powerful, especially when nested within compound queries. It can be as advanced as you need it to be.
+
+That concludes the boosting query. I hope you find it useful. See you in the next lecture!
+
+If you have any questions or need further clarification, feel free to ask!
+
+## Disjunction Max Query (dis_max)
+
+In this lecture, we'll discuss the disjunction max query, also known as dis_max. It is another compound query that contains query clauses, which can be either leaf queries or compound queries themselves. A document matches the dis_max query if at least one of the specified query clauses matches. Let's dive into an example to understand it better:
+
+```json
+{
+  "query": {
+    "dis_max": {
+      "queries": [
+        {
+          "match": {
+            "name": "vegetable"
+          }
+        },
+        {
+          "match": {
+            "tags": "vegetable"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+In this example, a document matches the dis_max query if it contains the term "vegetable" in either its name or tags field. By default, the best matching query clause is used to calculate the relevance score of a matching document. In other words, the highest relevance score among the matching clauses is assigned to the document. 
+
+For instance, if a document matches the query clause that searches the tags field and yields the highest relevance score, that score will be used for the matching document. Please note that the document and relevance scores used in this example are fictional.
+
+If only one query clause matches, the relevance score of that clause will be used. This behavior is expected.
+
+By default, the dis_max query works as described above. However, we can also provide a "tie breaker," which rewards documents that match multiple query clauses. This concept is similar to what we discussed earlier in the context of the multi_match query. Here's a quick recap:
+
+Suppose a document matches both query clauses, as was the case in our previous example. By adding the "tie_breaker" parameter to the dis_max query, we can control how much the relevance scores should be boosted. The "tie_breaker" parameter accepts a floating-point number between 0.0 and 1.0. Its default value is 0.0, which results in the default behavior we saw earlier.
+
+Let's take the same document as before and examine the impact of the tie_breaker parameter on the relevance scores. First, Elasticsearch finds the highest relevance score among the matching query clauses. In our example, that score is 5.62. If there are other matching query clauses, their relevance scores are multiplied by the tie breaker value, which is 0.3 in this case. The resulting numbers are then added to the highest relevance score. This process is repeated for any additional matching query clauses. The resulting number is used as the relevance score for the document.
+
+This approach means that the relevance scores of documents are increased for every query clause they match. This behavior is similar to the "should" occurrence type in the bool query, although the calculation method differs.
+
+The dis_max query provides us with control over how much the relevance scores should be boosted. 
+
+By now, this should all sound familiar because it relates to the multi_match query we discussed earlier. Remember the diagram illustrating how the multi_match query with default parameter values is translated into two match queries? That was a simplification. In reality, the match queries need to be wrapped within a compound query because only one "root query" can be executed at a time.
+
+The actual translation involves wrapping these match queries within a dis_max query, as shown here:
+
+```json
+{
+  "query": {
+    "dis_max": {
+      "queries": [
+        {
+          "match": {
+            "field1": "value1"
+          }
+        },
+        {
+          "match": {
+            "field2": "value2"
+          }
+        },
+        ...
+      ],
+      "tie_breaker": 0.3
+    }
+  }
+}
+```
+
+Please note that the translation of the multi_match query depends on the specific parameters provided. The example above demonstrates the translation when the "type" parameter is set to "best_fields," which is the default value. The multi_match query does not perform any magic; it's a convenience query that simplifies the writing of queries and acts as an abstraction layer.
+
+That covers the dis_max query. It is a useful query when you have multiple query clauses that don't necessarily need to match. You can let Elasticsearch assign the highest relevance score to each document by default or give a relevance boost for each additional query clause that matches.
+
+I hope this clarifies the dis_max query for you. See you in the next lecture!
+
+If you have any questions or need further clarification, feel free to ask!
+
+## Nested Data Type and Query
+
+In this lecture, we'll discuss the nested data type and how it enables us to query objects independently within Elasticsearch. To understand this concept better, let's work with a different data set. I have prepared a cURL request for the Bulk API in advance, which you can find in the GitHub repository if you'd like to follow along. 
+
+To give you an idea of the type of documents we'll be working with, here's an example document representing a food recipe:
+
+```json
+{
+  "name": "Spaghetti Carbonara",
+  "tags": ["pasta", "italian"],
+  "ingredients": [
+    {
+      "name": "spaghetti",
+      "amount": 200,
+      "unit": "grams"
+    },
+    {
+      "name": "parmesan",
+      "amount": 60,
+      "unit": "grams"
+    },
+    ...
+  ],
+  ...
+}
+```
+
+Each document represents a food recipe, with fields such as name, tags, and ingredients. We'll focus on the ingredients field for this lecture. It is an array of objects, where each object represents an ingredient. The ingredient object contains a name, amount, and unit. Both the amount and unit fields are optional and may not exist for all ingredients.
+
+Let's move to Kibana and query the data. I have prepared a bool query in advance. Our goal is to find recipes containing parmesan with an amount of at least 100. The query is straightforward, so let's run it.
+
+The query returns six recipes that match our criteria. However, upon inspection, we find that some of the matches don't seem to satisfy our requirements. For example, the first ingredient doesn't have an amount or unit, and the second one has an amount of only 60, which is below our required 100. This leads to the question of why these recipes are included in the results.
+
+To answer this question, let's examine the mapping. Since we didn't add explicit field mappings before importing our test data, Elasticsearch generated dynamic field mappings for us automatically. If we inspect the ingredients field, we can see that it was mapped as an object field. This can be inferred from the presence of the "nested properties" key, which implicitly specifies the object data type. Therefore, the field is mapped as the object data type, and we are essentially dealing with an array of objects in this case.
+
+Earlier in the course, we discussed the behavior of arrays of objects, so let's quickly recap. Internally, the values for each object key are grouped together and indexed as an array. When we query a field, Elasticsearch searches through all of the values. This is the reason behind the unexpected query results we encountered earlier.
+
+To resolve this issue, we need to do two things: map the ingredients field as the nested data type and use a special query designed for nested fields. To achieve this, we need to reindex the documents into an index that contains the updated mapping. The easiest way is to delete the existing recipes index and recreate it with the desired field mappings.
+
+Here's an example of the field mapping for the ingredients field:
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "ingredients": {
+        "type": "nested"
+      },
+      ...
+    }
+  }
+}
+```
+
+Note that we can leave out the mappings for subfields and let Elasticsearch map them dynamically. The crucial part is setting the "type" parameter to "nested" for the field. This instructs Elasticsearch to index the objects in a way that maintains relationships between object values, allowing us to query them independently. Internally, Elasticsearch indexes each nested object as a separate hidden document, which is a Lucene document. This is why we need to query them in a specific way.
+
+Now that the new mapping is in place, let's index the recipes again using the updated mapping. Once indexing is complete, we can return to Kibana.
+
+Before we demonstrate how to query nested fields, it's worth noting that we cannot query fields of the nested data type using regular queries. While we won't receive any errors when attempting to query them, it's still preferable to not receive confusing and potentially misleading results. Therefore, we must exercise caution when querying arrays of objects, regardless of whether the field is mapped with the nested data type or not.
+
+Now let's see how we can actually query nested fields using a specialized query called the nested query. Here's an example of how to structure a nested query:
+
+```json
+{
+  "query": {
+    "nested": {
+      "path": "ingredients",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "ingredients.name": "parmesan"
+              }
+            },
+            {
+              "range": {
+                "ingredients.amount": {
+                  "gte": 100
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+In the nested query, we first specify the path to the nested field relative to the root of the document. In this case, the path is just "ingredients." If the field were nested within another field, we could use the dot notation known from field mappings. 
+
+Next, we define the search constraints within the "query" parameter. Within this object, we can add any search query we want to run on the nested objects specified by the path. In this example, we include our existing bool query since everything related to the nested data type is handled automatically.
+
+Note that even though we specified the "ingredients" field as the path, we still need to include it within our query using dot notation (e.g., "ingredients.name" and "ingredients.amount").
+
+With this configuration, let's run the query and see what happens. This time, we only receive a single match, which is what we initially expected. Let's examine the matched recipe's parmesan ingredient and verify that everything looks good.
+
+As you can see, the amount is indeed greater than or equal to 100, satisfying the constraints specified in our query. By using the nested data type and query, we successfully applied multiple constraints to the same nested object, achieving the desired outcome.
+
+It's important to note that even though the nested query defines constraints for the nested objects, the query always returns the root document when there is a match.
+
+Lastly, I briefly want to touch on how the nested query handles relevance scoring, specifically how matching child objects affect the parent document's relevance score. Since each nested object is actually a separate document internally, Elasticsearch calculates a relevance score when the nested objects match a query. The parent document's relevance score calculation can be configured using the "score_mode" parameter. By default, the average relevance score of the matching child objects is used for the parent document. Other options include using the minimum or maximum relevance score or adding all of them together to obtain the sum. Additionally, we can choose to ignore the child objects in terms of relevance scoring by using a value of zero.
+
+There is more to nested objects than what we covered here, so we'll continue exploring them in the next lecture.
+
+If you have any questions or need further clarification, feel free to ask!
+
+## Inner Hits with Nested Query
+
+In the previous lecture, we explored how to map and query arrays of objects independently using the nested query. However, when using the nested query, Elasticsearch only returns the parent document whenever a nested object matches. While this is the general behavior and works well, there might be cases where we want to know which specific nested objects caused the match. This is where inner hits come into play.
+
+Inner hits can be useful for various use cases, including highlighting matches. Let's revisit the query from the previous lecture and see how inner hits work.
+
+Enabling inner hits is straightforward. We just need to add a parameter named "inner_hits" to the nested query. The value for this parameter should be an empty object, at least when using the default behavior. 
+
+Let's run the query and examine the results. At the bottom of the results, we can see the inner hits. Now let's discuss the additional data that has been added. It can be a bit overwhelming at first, so let's break it down step by step.
+
+Here is the overall structure of the search results, with the actual hits omitted:
+
+```json
+{
+  "took": ...,
+  "timed_out": ...,
+  "hits": {
+    "total": ...,
+    "max_score": ...,
+    ...
+  },
+  ...
+}
+```
+
+Each hit represents a document and includes some metadata. The document itself is available within the "_source" key, which is nothing new.
+
+When we specify the "inner_hits" parameter, a new object is added for the "inner_hits" key, which contains information about the inner hits. This object is added at the same level as the "_source" object, which is the root of each hit.
+
+Within the "inner_hits" object, another object is added for each field that has inner hits. In our example, we searched the nested objects within the "ingredients" field. By default, the key for this object is named the same as the path specified within the nested query.
+
+Within each field's object, we have a "hits" object, which has the same structure as the outermost "hits" object. Let's focus on the "hits" object, which contains the actual inner hits.
+
+These inner hits represent the matching nested objects for the "ingredients" path. The "_nested" key contains information about the matched nested object. The most interesting piece of information is the "offset" key, which defines the nested object's offset within the parent document's "_source" object. This offset can be thought of as the index within an array, starting from zero. 
+
+It's important to note that inner hits are sorted by their relevance scores by default. Therefore, the order in which they appear may differ from the order within the document's "_source" object. The "offset" value tells us where the inner object appears within the "_source" object.
+
+Now, I understand that the JSON object can be overwhelming to look at. However, keep in mind that you will usually interact with search results programmatically, so you won't have to examine the raw JSON frequently.
+
+To make it slightly easier to read, here's the JSON object shown with dot notation:
+
+```json
+{
+  ...
+  "hits.inner_hits.ingredients.hits": {
+    ...
+  },
+  ...
+}
+```
+
+Even with dot notation, the object can still be complex and overwhelming, but that's the nature of it. 
+
+Now let's briefly cover two simple parameters related to inner hits:
+
+1. The "name" parameter allows us to change the key that appears directly within the "inner_hits" object in the results. By default, it uses the path specified within the nested query. While it's typically not necessary to change it, there might be cases, especially with complex queries containing multiple nested queries, where changing the name can provide clarity or avoid conflicts.
+
+2. The "size" parameter allows us to configure how many inner hits we want to be returned for each matching document. By default, up to three hits are returned, sorted by relevance scores. In our example, we increased this to include the top ten inner hits.
+
+There are a few more parameters related to inner hits, but they are not frequently used, so we won't cover them here.
+
+That's it for inner hits! With the nested query, we can query nested objects independently. However, if we also want to know why a particular object matched the query, we can utilize inner hits. Inner hits provide additional information about the specific nested objects that caused the match.
+
+If you have any questions or need further clarification, feel free to ask!
