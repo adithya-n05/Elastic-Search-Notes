@@ -782,7 +782,6 @@ Routing is a fundamental concept in Elasticsearch that determines how documents 
 
 These are the key aspects of routing in Elasticsearch. The default routing strategy simplifies document management and retrieval while ensuring even distribution across shards. Understanding routing is crucial for efficient document storage and retrieval in Elasticsearch.
 
-Sure! Here's a simplified diagram explaining the process of reading data in Elasticsearch:
 
 ```
                               +---------+
@@ -922,8 +921,6 @@ The versioning mechanism in Elasticsearch provides basic information about the n
 Note: The diagram represents a simplified overview of the versioning process in Elasticsearch and omits certain details for clarity.
 
 ### Optimistic Concurrency Control in Elasticsearch
-
-Sure! Here's a simplified explanation of how you can achieve optimistic concurrency control in Elasticsearch:
 
 #### What is Optimistic Concurrency Control?
 
@@ -2767,8 +2764,6 @@ PUT /my_index
 
 These explanations and code examples should help you understand dynamic templates and their usage in Elasticsearch, even if you're not familiar with HTTP commands, JSON files, parameters, or Elasticsearch itself.
 
-Sure! Here are the revised notes with explanations, including code snippets, intended for a reader who is not familiar with HTTP commands, JSON files, parameters, or Elasticsearch:
-
 ## Mapping Recommendations
 
 Before we dive back into analyzers, I'd like to share a couple of recommendations regarding mapping in Elasticsearch. These are my personal opinions, so feel free to decide whether or not to follow them.
@@ -2984,8 +2979,6 @@ To create a custom analyzer, we need to follow a few steps. Let's go through the
 12. To use the custom analyzer in field mapping, specify its name as the value for the "analyzer" parameter, just as we did with built-in analyzers.
 
 Congratulations! You now know how to create custom analyzers in Elasticsearch. You can tailor analyzers to suit your specific needs by combining character filters, tokenizers, and token filters. Remember that you can also configure the behavior of built-in analyzers or create custom configurations by extending them.
-
-Sure! Here are the revised notes with explanations and code snippets:
 
 ## Creating a Custom Analyzer
 
@@ -3214,7 +3207,7 @@ The example above demonstrates a basic search query that matches all documents. 
 
 Let's continue with more practical search queries.
 
-Please note that the provided code snippets are placeholders and need to be replaced with the actual index name, field names, and query parameters relevant to your specific use case.
+
 
 ## Term Level Queries in Elasticsearch
 
@@ -3269,10 +3262,6 @@ Instead, when searching for text values, use term level queries with fields that
 To recap, term level queries should be used for matching exact terms and are not suitable for fields with the text data type. Understanding this distinction is important to avoid unexpected results and ensure accurate search queries.
 
 Now, let's write a couple of queries to put our knowledge into practice.
-
-Please note that the provided code snippets are placeholders and need to be replaced with the actual index name, field names, and query parameters relevant to your specific use case.
-
-Sure! Here's the revised text with detailed exemplar code:
 
 ## Term Level Queries in Elasticsearch
 
@@ -3393,7 +3382,7 @@ Let's run it and scroll through the results to see documents containing either o
 
 That covers the basics of searching for exact terms in Elasticsearch using term level queries. Remember to use these queries with keyword mappings and not full-text fields to ensure accurate results.
 
-Please note that the provided code snippets are placeholders and need to be replaced with the actual index name, field names, and query parameters relevant to your specific use case.
+
 
 ## Retrieving Multiple Documents Based on IDs
 
@@ -4603,7 +4592,7 @@ A better approach would be to split the data into two separate indices: one for 
 
 By keeping these limitations in mind and designing your document mappings accordingly, you can work effectively with nested fields in Elasticsearch.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Joining Queries in Elasticsearch
 
@@ -4621,7 +4610,7 @@ It's worth mentioning that Elasticsearch does not support joins in the same way 
 
 In the upcoming lectures, we will explore the tools and techniques available in Elasticsearch for mapping and querying document relationships. Elasticsearch provides specific functionalities to handle relationships between documents effectively.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Defining Document Relationships in Elasticsearch
 
@@ -4671,7 +4660,7 @@ If we wanted to define multiple child types for the same parent, we could change
 
 Now that we have defined the document relationship, let's proceed by adding some sample documents to the index to have data for working with in subsequent lectures.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Adding Documents and Defining Document Relations
 
@@ -4756,7 +4745,7 @@ PUT department/_doc/4?routing=2
 
 By following this approach, you can add as many departments and employees as needed, establishing the desired document relationships.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Querying Document Relations
 
@@ -4828,7 +4817,7 @@ Before ending the lecture, I'd like to mention two things about the search resul
 
 If all of this went over your head, don't worry! It's just some background knowledge that's not essential to understand when using the "parent_id" query.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Querying Child Documents Based on Parent Document Criteria
 
@@ -4913,7 +4902,7 @@ If you do need this behavior and want to explore it further, I have attached a l
 
 That's it! As you can see, the "has_parent" query offers more flexibility than the "parent_id" query in cases where you don't know the ID of the parent document or when you're looking for more than a single parent document.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Querying Parent Documents Based on Child Document Criteria
 
@@ -5096,7 +5085,7 @@ When we run the query, we no longer get any matches. That's because we set the m
 
 Lastly, it's worth mentioning that the "has_child" query also supports sorting parent documents by child documents in the same way the "has_parent" query supports sorting. However, this requires scripting, and since we haven't covered scripting yet, I'll attach a link to an example for reference.
 
-That's it for this lecture! If you have any further questions or need additional clarification, feel free to ask!
+That's it for this lecture! 
 
 ## Querying Multi-level Relations
 
@@ -5159,7 +5148,7 @@ Let's run the query and check the results. As we can see, only the company that 
 
 That's it! You now know how to define and query multi-level relations. You can use the queries you've learned in different combinations depending on the data you're working with and the data you want to retrieve.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Returning Inner Hits for Queries on Join Fields
 
@@ -5209,7 +5198,7 @@ Let's run the query and check the results. We can see which department caused ea
 
 That's all there is to returning inner hits for queries that use join fields. It allows us to gain insights into the relationships between parent and child documents and understand how the matching process unfolds.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Using Terms Query with Terms Lookup Mechanism
 
@@ -5256,7 +5245,7 @@ By leveraging Elasticsearch's internal mechanism, we achieve better performance.
 
 In summary, this lecture demonstrated how to use the terms query with the terms lookup mechanism to retrieve terms from another document, potentially from another index, and use those terms within the same terms query. Additionally, we discussed how this approach improves performance compared to executing two separate queries.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 Certainly! Here's the revised text with detailed explanations:
 
@@ -5286,7 +5275,7 @@ It's important to note that the performance of joining queries can be affected b
 
 In summary, join queries in Elasticsearch are designed to provide efficient and performant document relationship lookups. By adhering to the limitations of join fields and leveraging Elasticsearch's indexing and caching mechanisms, we can achieve fast and scalable join operations within the same index.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
 
 ## Performance and Considerations of Join Fields
 
@@ -5308,4 +5297,460 @@ Instead of trying to map document relationships, a common approach is to denorma
 
 In summary, while join fields can have performance implications and should be used with caution, it is generally advised to denormalize your data and structure it in a way that maximizes search efficiency. Reserve the use of join fields for cases where denormalization is not suitable, and be aware of the limitations and consequences associated with using join fields.
 
-If you have any further questions or need additional clarification, feel free to ask!
+
+
+## Controlling Results: Formatting as HTML and Pretty JSON
+
+In this section, we'll explore how to control the format of Elasticsearch query results, including formatting the results as HTML instead of JSON and making the JSON output more readable.
+
+Let's start with formatting the results as HTML:
+
+1. **Formatting as HTML**: To make Elasticsearch return HTML instead of JSON, we need to add a query parameter named `format` with a value of `yaml` (short for YAML). Here's an example query:
+
+```bash
+GET /index_name/_search?format=yaml
+```
+
+Output:
+```yaml
+---
+responses:
+- hits:
+    total:
+      value: 5
+    ...
+  ...
+```
+
+As you can see, the response is returned in YAML format.
+
+Next, let's focus on making the JSON output more readable:
+
+2. **Pretty JSON**: By default, when running queries within the console in a graphical user interface like Kibana, the JSON results are automatically formatted for readability. However, when running queries in a terminal, the results may not be formatted in a human-readable way. To address this, we can use the `pretty` parameter to format the JSON response in a more readable manner. Here's an example using the `curl` command:
+
+```bash
+curl -XGET "http://localhost:9200/index_name/_search?pretty"
+```
+
+Output:
+```json
+{
+  "took" : 4,
+  "timed_out" : false,
+  ...
+}
+```
+
+As you can see, the JSON response is now indented and well-formatted, making it easier to read and understand.
+
+Please note that using the `pretty` parameter is primarily intended for debugging purposes and is more resource-intensive. It's recommended to use this option sparingly, especially in production environments.
+
+By controlling the format of Elasticsearch query results, whether as HTML or by making the JSON output pretty, you can adapt the presentation to suit your needs and facilitate easier analysis and debugging.
+
+
+
+## Controlling Results: Limiting the `_source` Field
+
+In this lecture, we'll explore how to control which parts of the `_source` field are returned for each match in a search query. By default, the entire contents of the field are returned, but there are scenarios where you might want to limit what is returned to reduce data transfer and improve performance. Additionally, you can disable the `_source` field altogether if you don't need it.
+
+Let's look at the options for controlling the `_source` field:
+
+1. **Disabling the `_source` Field**: If you don't need the `_source` field at all and only want to use Elasticsearch for searching and retrieving document IDs, you can disable it. To do this, add the `_source` parameter at the top level of the query and set it to `false`. Here's an example using a match query:
+
+```json
+{
+  "_source": false,
+  "query": {
+    "match": {
+      "field_name": "search_term"
+    }
+  }
+}
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 5,
+      ...
+    }
+  }
+}
+```
+
+As you can see, there is no `_source` key in the matches.
+
+2. **Specifying Field Names**: To return only specific fields, you can specify the name of a single field or an array of field names. Here's an example using the `created` field:
+
+```json
+{
+  "_source": "created",
+  "query": {
+    "match": {
+      "field_name": "search_term"
+    }
+  }
+}
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 5,
+      ...
+    },
+    "hits": [
+      {
+        "_source": {
+          "created": "2022-01-01"
+        }
+      }
+    ]
+  }
+}
+```
+
+Only the `created` field is returned in the matches.
+
+3. **Nested Properties and Wildcards**: For objects and nested properties, you can specify a key path to include specific fields. For example, if you only want to include the `name` field within the `ingredients` object, you can specify it as `ingredients.name`. Here's an example:
+
+```json
+{
+  "_source": "ingredients.name",
+  "query": {
+    "match": {
+      "field_name": "search_term"
+    }
+  }
+}
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 5,
+      ...
+    },
+    "hits": [
+      {
+        "_source": {
+          "ingredients": [
+            {
+              "name": "ingredient1"
+            },
+            {
+              "name": "ingredient2"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+Only the `name` property is returned for each object within the `ingredients` array.
+
+4. **Array of Field Names**: You can also specify an array of field names to include multiple fields. For example, to include all keys within the `ingredients` object and the entire `servings` object, you can define an array as follows:
+
+```json
+{
+  "_source": ["ingredients.*", "servings"],
+  "query": {
+    "match": {
+      "field_name": "search_term"
+    }
+  }
+}
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 5,
+      ...
+    },
+    "hits": [
+      {
+        "_source": {
+          "ingredients": [
+            {
+              "name": "ingredient1",
+              "quantity": 2
+            },
+            {
+              "name": "ingredient2",
+              "quantity": 1
+            }
+          ],
+          "servings": 4
+        }
+      }
+    ]
+  }
+}
+```
+
+The entire `ingredients` object and the `servings` field are returned.
+
+5. **Includes and Excludes**: Lastly, you can use an object with `includes` and `excludes` keys for complete control over the `_source` field. For example, to include all keys within the `ingredients` object except for the `name` field, you can use the following format:
+
+```json
+{
+  "_source": {
+    "includes": ["ingredients.*"],
+    "excludes": ["ingredients.name"]
+  },
+  "query": {
+    "match": {
+      "field_name": "search_term"
+    }
+  }
+}
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 5,
+      ...
+    },
+    "hits": [
+      {
+        "_source": {
+          "ingredients": [
+            {
+              "quantity": 2
+            },
+            {
+              "quantity": 1
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+The `name` property is excluded from each object within the `ingredients` field.
+
+By controlling the `_source` field, you can limit the amount of data returned in a search query, reducing network transfer and improving performance. It's analogous to specifying which columns a query should return in a relational database.
+
+
+
+## Controlling Results: Limiting the Number of Hits
+
+In this quick lecture, we'll explore how to control the maximum number of hits that are returned from a search query. You have two options for specifying the desired result size: using the `size` query parameter or adding a `size` parameter within the request body.
+
+Let's see how to implement each method:
+
+1. **Using the Query Parameter**: To limit the number of matches returned, add the `size` query parameter to the request URL. Here's an example using a simple query with the `_source` parameter set to `false` for clarity:
+
+```bash
+GET /index_name/_search?size=2
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 8,
+      ...
+    },
+    "hits": [
+      {
+        "_index": "index_name",
+        "_id": "document_id_1",
+        ...
+      },
+      {
+        "_index": "index_name",
+        "_id": "document_id_2",
+        ...
+      }
+    ]
+  }
+}
+```
+
+Only two matches are returned, but the `total` key still indicates the total number of matches.
+
+2. **Using the Request Body**: Alternatively, you can specify the result size within the request body by adding a `size` parameter. Here's an example modifying the previous query:
+
+```json
+{
+  "size": 2,
+  "query": {
+    ...
+  }
+}
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 8,
+      ...
+    },
+    "hits": [
+      {
+        "_index": "index_name",
+        "_id": "document_id_1",
+        ...
+      },
+      {
+        "_index": "index_name",
+        "_id": "document_id_2",
+        ...
+      }
+    ]
+  }
+}
+```
+
+The results are the same as before, with only two matches returned.
+
+It's important to note that the default result size is 10, so you only need to use the `size` parameter if you want a different number of hits to be returned.
+
+Feel free to experiment with different values for `size` to control the number of hits in your search results.
+
+
+
+## Controlling Results: Pagination with Size and From Parameters
+
+In this lecture, we'll discuss how to retrieve the next page of results using pagination. By combining the `size` parameter with an `offset` or `from` parameter, you can create a sliding window effect and implement pagination in your search results.
+
+To retrieve the next page of results, follow these steps:
+
+1. **Specify the Initial From Parameter**: Add a `from` parameter to the query, initially set to zero (the default value). This parameter indicates the number of matches to skip before returning the results. Here's an example using the previous query from the lecture:
+
+```json
+{
+  "size": 2,
+  "from": 0,
+  "query": {
+    ...
+  }
+}
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 8,
+      ...
+    },
+    "hits": [
+      {
+        "_index": "index_name",
+        "_id": "document_id_1",
+        ...
+      },
+      {
+        "_index": "index_name",
+        "_id": "document_id_2",
+        ...
+      }
+    ]
+  }
+}
+```
+
+This query retrieves the first two hits.
+
+2. **Retrieve the Next Page**: To retrieve the next page of results, change the value of the `from` parameter. For example, if you want to retrieve the next two hits, set the `from` parameter to 2:
+
+```json
+{
+  "size": 2,
+  "from": 2,
+  "query": {
+    ...
+  }
+}
+```
+
+Output:
+```json
+{
+  "took": 10,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 8,
+      ...
+    },
+    "hits": [
+      {
+        "_index": "index_name",
+        "_id": "document_id_3",
+        ...
+      },
+      {
+        "_index": "index_name",
+        "_id": "document_id_4",
+        ...
+      }
+    ]
+  }
+}
+```
+
+This query retrieves the third and fourth hits, representing the next page of results.
+
+To retrieve subsequent pages, continue incrementing the `from` parameter value by the size of each page. For example, to retrieve the fourth page, set `from` to 6.
+
+Using the `size` and `from` parameters in this manner allows you to implement pagination and navigate through your search results effectively.
+
+
+
+## Implementing Pagination with Size and From Parameters
+
+In this lecture, we'll discuss how to implement pagination in an application using the `size` and `from` parameters. By calculating the total number of pages and the corresponding offset, you can control the pagination of search results.
+
+To implement pagination, follow these steps:
+
+1. **Calculate the Total Number of Pages**: At the application level, calculate the total number of search result pages based on the `size` parameter and the total number of hits returned by Elasticsearch. Divide the total number of hits by the page size (i.e., the `size` parameter) and round up to the nearest integer. For example, if you have 137 hits and a page size of 10, the calculation would yield 13.7, which is rounded up to 14. This represents the total number of search result pages available.
+
+2. **Specify the Page Number**: To navigate to a specific page, calculate the offset based on the page number and page size. Subtract one from the page number and multiply it by the page size to determine the offset. For example, if you have a page size of 10 and want to retrieve page 6, the offset would be 50.
+
+Using these calculations, you can implement a pagination control in your application. The `size` and `from` parameters in Elasticsearch allow you to navigate through the search results efficiently.
+
+Please note that there is a limit of 10,000 results when using pagination. Elasticsearch sets this limit as a safeguard to prevent excessive memory usage and long-running requests. In most cases, users rarely navigate beyond the first few pages, so this limit is not an issue. However, if you require deeper pagination or search engine crawling, you can use the `search_after` parameter, which is more complex and beyond the scope of this lecture. You can refer to the provided link for more details.
+
+It's important to mention that unlike cursor-based pagination in relational databases, Elasticsearch's `size` and `from` parameters do not maintain an open cursor or keep track of changes to the dataset. Each search query is stateless, and the results are based on the latest data available at the time of the query. If documents are added, deleted, or modified between paginated requests, the results may differ. This distinction is worth noting to ensure accurate and up-to-date search results.
+
+Consider the performance implications of your Elasticsearch cluster based on the frequency of queries and data modifications. While Elasticsearch handles search queries efficiently, data changes can impact the results when using pagination.
+
